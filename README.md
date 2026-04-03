@@ -11,15 +11,13 @@ Agente personal de memoria que organiza tu informacion diaria usando Telegram y 
 
 ## Setup
 
-### 1. Crear bot de Telegram
+### 1. Bot de Telegram
 
-1. Habla con [@BotFather](https://t.me/BotFather) en Telegram
-2. Crea un nuevo bot con `/newbot`
-3. Copia el token
+El bot ya esta creado: [@Memorizer2Bot](https://t.me/Memorizer2Bot)
 
 ### 2. Obtener Group ID
 
-1. Agrega el bot a tu grupo de Telegram
+1. Agrega @Memorizer2Bot a tu grupo de Telegram
 2. Envia un mensaje al grupo
 3. Visita `https://api.telegram.org/bot<TOKEN>/getUpdates`
 4. Busca el `chat.id` del grupo (numero negativo)
