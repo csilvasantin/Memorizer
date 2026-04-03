@@ -11,6 +11,7 @@ from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID
 from src.classifier import classify_message
 from src.storage import MemoryStorage
 from src.query import answer_query, generate_summary, get_stats_text
+from src.council import get_recipients, format_council_notification
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -95,12 +96,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "contacto": "📇",
         "evento": "📅",
         "otro": "📝",
+        "tecnología": "🔧",
+        "creatividad": "🎨",
+        "negocio": "📊",
     }
     emoji = category_emoji.get(result["category"], "📝")
     try:
         await message.set_reaction(emoji)
     except Exception:
         pass  # Reactions may not be supported
+
+    # Council routing notification
+    recipients = get_recipients(result["category"])
+    if recipients:
+        notification = format_council_notification(
+            result["category"], result.get("summary", ""), recipients
+        )
+        try:
+            await message.reply_text(notification, parse_mode="Markdown")
+        except Exception as e:
+            logger.warning(f"Could not send council notification: {e}")
 
 
 async def cmd_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
