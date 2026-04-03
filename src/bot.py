@@ -11,7 +11,12 @@ from src.config import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_ID
 from src.classifier import classify_message
 from src.storage import MemoryStorage
 from src.query import answer_query, generate_summary, get_stats_text
-from src.council import get_recipients, format_council_notification
+from src.council import (
+    get_recipients,
+    format_council_notification,
+    get_destination_group,
+    format_forwarded_message,
+)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -106,16 +111,28 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass  # Reactions may not be supported
 
-    # Council routing notification
-    recipients = get_recipients(result["category"])
-    if recipients:
-        notification = format_council_notification(
-            result["category"], result.get("summary", ""), recipients
+    # Forward to destination group
+    category = result["category"]
+    recipients = get_recipients(category)
+    destination_group = get_destination_group(category)
+
+    if destination_group:
+        forwarded = format_forwarded_message(
+            category=category,
+            content=content,
+            summary=result.get("summary", ""),
+            recipients=recipients,
+            author=author,
         )
         try:
-            await message.reply_text(notification, parse_mode="Markdown")
+            await context.bot.send_message(
+                chat_id=destination_group,
+                text=forwarded,
+                parse_mode="Markdown",
+            )
+            logger.info(f"Forwarded to group {destination_group} (category: {category})")
         except Exception as e:
-            logger.warning(f"Could not send council notification: {e}")
+            logger.warning(f"Could not forward to destination group {destination_group}: {e}")
 
 
 async def cmd_buscar(update: Update, context: ContextTypes.DEFAULT_TYPE):
