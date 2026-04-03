@@ -1,0 +1,1584 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memorizer — Documentación</title>
+  <style>
+    /* ═══════════════════════════════════════════
+       RESET & BASE
+    ═══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0d1117;
+      --bg-card:    #161b22;
+      --bg-card2:   #1c2230;
+      --border:     #30363d;
+      --border2:    #21262d;
+      --accent:     #58a6ff;
+      --accent2:    #3fb950;
+      --accent3:    #f78166;
+      --accent4:    #d2a8ff;
+      --text:       #e6edf3;
+      --text-muted: #8b949e;
+      --text-dim:   #6e7681;
+      --code-bg:    #111827;
+      --nav-h:      64px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ═══════════════════════════════════════════
+       NAV
+    ═══════════════════════════════════════════ */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: var(--nav-h);
+      background: rgba(13,17,23,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 2rem;
+      gap: 2rem;
+    }
+
+    .nav-brand {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+    }
+
+    .nav-brand .brand-icon {
+      font-size: 1.4rem;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 0.25rem;
+      list-style: none;
+      flex-wrap: wrap;
+    }
+
+    .nav-links a {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+      background: var(--bg-card2);
+      text-decoration: none;
+    }
+
+    .nav-badge {
+      margin-left: auto;
+      background: var(--bg-card2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      padding: 0.2rem 0.7rem;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    /* ═══════════════════════════════════════════
+       LAYOUT
+    ═══════════════════════════════════════════ */
+    .page { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+
+    section {
+      padding: 5rem 0;
+      border-bottom: 1px solid var(--border2);
+    }
+
+    section:last-child { border-bottom: none; }
+
+    .section-label {
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 0.75rem;
+    }
+
+    h2 {
+      font-size: clamp(1.6rem, 4vw, 2.4rem);
+      font-weight: 700;
+      margin-bottom: 1rem;
+      line-height: 1.2;
+    }
+
+    h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .lead {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 680px;
+      margin-bottom: 3rem;
+    }
+
+    /* ═══════════════════════════════════════════
+       HERO
+    ═══════════════════════════════════════════ */
+    #hero {
+      padding: 7rem 0 6rem;
+      position: relative;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border2);
+    }
+
+    #hero::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(88,166,255,0.12) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 80% 60%, rgba(63,185,80,0.07) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 4rem;
+    }
+
+    .hero-text { flex: 1; min-width: 0; }
+
+    .hero-logo {
+      width: 140px;
+      height: 140px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, #1a2a4a 0%, #0f1f3a 100%);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 5rem;
+      flex-shrink: 0;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(88,166,255,0.1);
+      border: 1px solid rgba(88,166,255,0.25);
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.3rem 0.9rem;
+      border-radius: 20px;
+      margin-bottom: 1.5rem;
+      letter-spacing: 0.05em;
+    }
+
+    h1 {
+      font-size: clamp(2.4rem, 6vw, 3.8rem);
+      font-weight: 800;
+      line-height: 1.05;
+      margin-bottom: 1.25rem;
+      background: linear-gradient(135deg, #e6edf3 0%, #8b949e 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-desc {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      max-width: 560px;
+      margin-bottom: 2.5rem;
+      line-height: 1.65;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.5rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #0d1117;
+      border-color: var(--accent);
+    }
+    .btn-primary:hover { background: #79baff; border-color: #79baff; text-decoration: none; color: #0d1117; }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--border);
+    }
+    .btn-secondary:hover { background: var(--bg-card2); border-color: var(--text-muted); text-decoration: none; }
+
+    .hero-badges {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-top: 2rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: var(--bg-card2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      padding: 0.25rem 0.7rem;
+      border-radius: 6px;
+    }
+
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent2);
+    }
+
+    /* ═══════════════════════════════════════════
+       CARDS GRID
+    ═══════════════════════════════════════════ */
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
+    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .card p { color: var(--text-muted); font-size: 0.9rem; margin-top: 0.35rem; }
+
+    /* ═══════════════════════════════════════════
+       FLOW DIAGRAM
+    ═══════════════════════════════════════════ */
+    .flow-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2.5rem 2rem;
+      overflow-x: auto;
+    }
+
+    .flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      min-width: 700px;
+    }
+
+    .flow-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+      flex: 1;
+    }
+
+    .flow-box {
+      width: 100%;
+      max-width: 130px;
+      background: var(--bg-card2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 0.75rem;
+      text-align: center;
+    }
+
+    .flow-box .ficon { font-size: 1.6rem; display: block; margin-bottom: 0.3rem; }
+    .flow-box .ftitle { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+    .flow-box .fsub { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+    .flow-arrow {
+      flex-shrink: 0;
+      padding: 0 0.5rem;
+      color: var(--text-dim);
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+
+    .flow-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-align: center;
+      max-width: 120px;
+    }
+
+    /* Color accent per step */
+    .flow-step:nth-child(1) .flow-box { border-color: rgba(88,166,255,0.4); }
+    .flow-step:nth-child(3) .flow-box { border-color: rgba(210,168,255,0.4); }
+    .flow-step:nth-child(5) .flow-box { border-color: rgba(63,185,80,0.4); }
+    .flow-step:nth-child(7) .flow-box { border-color: rgba(247,129,102,0.4); }
+    .flow-step:nth-child(9) .flow-box { border-color: rgba(88,166,255,0.4); }
+
+    /* ═══════════════════════════════════════════
+       CATEGORIES
+    ═══════════════════════════════════════════ */
+    .categories-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .cat-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1rem;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: border-color 0.15s;
+    }
+
+    .cat-pill:hover { border-color: var(--accent); }
+    .cat-pill .emoji { font-size: 1.4rem; }
+
+    /* ═══════════════════════════════════════════
+       CODE BLOCKS
+    ═══════════════════════════════════════════ */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      font-size: 0.875rem;
+      line-height: 1.65;
+      margin: 1rem 0;
+    }
+
+    code {
+      font-family: "SF Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
+      font-size: 0.875em;
+    }
+
+    p code, li code, td code {
+      background: rgba(88,166,255,0.1);
+      border: 1px solid rgba(88,166,255,0.2);
+      border-radius: 4px;
+      padding: 0.1em 0.4em;
+      color: var(--accent);
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-card2);
+      border: 1px solid var(--border);
+      border-bottom: none;
+      border-radius: 10px 10px 0 0;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .code-header + pre {
+      border-radius: 0 0 10px 10px;
+      margin-top: 0;
+    }
+
+    .syntax-comment { color: #6e7681; }
+    .syntax-key     { color: var(--accent4); }
+    .syntax-val     { color: var(--accent2); }
+    .syntax-str     { color: #a5d6ff; }
+    .syntax-cmd     { color: var(--accent2); }
+    .syntax-arg     { color: var(--accent); }
+    .syntax-prompt  { color: var(--text-dim); user-select: none; }
+
+    /* ═══════════════════════════════════════════
+       COMMANDS TABLE
+    ═══════════════════════════════════════════ */
+    .cmd-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .cmd-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: start;
+      gap: 1rem;
+    }
+
+    .cmd-name {
+      font-family: "SF Mono", "Fira Code", Consolas, monospace;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent2);
+      white-space: nowrap;
+    }
+
+    .cmd-desc { color: var(--text-muted); font-size: 0.9rem; }
+    .cmd-desc strong { color: var(--text); }
+
+    .cmd-example {
+      font-family: "SF Mono", "Fira Code", Consolas, monospace;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      background: var(--bg-card2);
+      border: 1px solid var(--border2);
+      padding: 0.2rem 0.6rem;
+      border-radius: 5px;
+      white-space: nowrap;
+    }
+
+    /* ═══════════════════════════════════════════
+       MODULES / ARCHITECTURE
+    ═══════════════════════════════════════════ */
+    .module-list { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    .module {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .module-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1.2rem 1.5rem;
+      border-bottom: 1px solid var(--border2);
+    }
+
+    .module-file {
+      font-family: "SF Mono", "Fira Code", Consolas, monospace;
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .module-tag {
+      margin-left: auto;
+      background: rgba(88,166,255,0.1);
+      border: 1px solid rgba(88,166,255,0.2);
+      color: var(--accent);
+      font-size: 0.72rem;
+      padding: 0.15rem 0.6rem;
+      border-radius: 4px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .module-body { padding: 1.25rem 1.5rem; }
+    .module-body p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem; }
+
+    .func-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; }
+    .func-list li {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+    }
+    .func-list code { color: var(--accent4); }
+    .func-list span { color: var(--text-muted); }
+
+    /* ═══════════════════════════════════════════
+       CONFIG TABLE
+    ═══════════════════════════════════════════ */
+    .config-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .config-table th {
+      text-align: left;
+      padding: 0.75rem 1rem;
+      background: var(--bg-card2);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .config-table th:first-child { border-radius: 10px 0 0 0; }
+    .config-table th:last-child  { border-radius: 0 10px 0 0; }
+
+    .config-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border2);
+      vertical-align: top;
+    }
+
+    .config-table tr:last-child td { border-bottom: none; }
+    .config-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .config-table td:first-child {
+      font-family: "SF Mono", "Fira Code", Consolas, monospace;
+      color: var(--accent2);
+      white-space: nowrap;
+    }
+
+    .config-table td:nth-child(2) { color: var(--text-muted); }
+
+    .required {
+      background: rgba(247,129,102,0.1);
+      border: 1px solid rgba(247,129,102,0.25);
+      color: var(--accent3);
+      font-size: 0.7rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .optional {
+      background: rgba(63,185,80,0.08);
+      border: 1px solid rgba(63,185,80,0.2);
+      color: var(--accent2);
+      font-size: 0.7rem;
+      padding: 0.1rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .config-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    /* ═══════════════════════════════════════════
+       TECH STACK
+    ═══════════════════════════════════════════ */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .tech-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem 1.25rem;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+
+    .tech-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+    .tech-icon { font-size: 2.2rem; margin-bottom: 0.75rem; }
+    .tech-name { font-weight: 700; font-size: 1rem; margin-bottom: 0.25rem; }
+    .tech-ver { font-size: 0.75rem; color: var(--accent); margin-bottom: 0.5rem; }
+    .tech-desc { font-size: 0.83rem; color: var(--text-muted); line-height: 1.5; }
+
+    /* ═══════════════════════════════════════════
+       STEPS (numbered)
+    ═══════════════════════════════════════════ */
+    .steps { display: flex; flex-direction: column; gap: 1.5rem; }
+
+    .step {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 1.25rem;
+    }
+
+    .step-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--bg-card2);
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 0.1rem;
+    }
+
+    .step-content h3 { margin-bottom: 0.5rem; font-size: 1rem; }
+    .step-content p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem; }
+
+    /* ═══════════════════════════════════════════
+       TABS
+    ═══════════════════════════════════════════ */
+    .tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 0.5rem 1.25rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .tab-btn:hover { color: var(--text); border-color: var(--text-muted); }
+    .tab-btn.active { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 600; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ═══════════════════════════════════════════
+       CALLOUT
+    ═══════════════════════════════════════════ */
+    .callout {
+      display: flex;
+      gap: 1rem;
+      background: rgba(88,166,255,0.06);
+      border: 1px solid rgba(88,166,255,0.2);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      align-items: flex-start;
+    }
+
+    .callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.1rem; }
+    .callout strong { color: var(--accent); }
+
+    .callout.warn {
+      background: rgba(247,129,102,0.06);
+      border-color: rgba(247,129,102,0.2);
+    }
+    .callout.warn strong { color: var(--accent3); }
+
+    /* ═══════════════════════════════════════════
+       FOOTER
+    ═══════════════════════════════════════════ */
+    footer {
+      padding: 3rem 2rem;
+      border-top: 1px solid var(--border2);
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    footer a { color: var(--text-muted); }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════ */
+    @media (max-width: 768px) {
+      .hero-inner { flex-direction: column-reverse; gap: 2rem; }
+      .hero-logo { width: 100px; height: 100px; font-size: 3.5rem; }
+      nav { gap: 1rem; padding: 0 1rem; }
+      .nav-links { display: none; }
+      .page { padding: 0 1.25rem; }
+      .cmd-item { grid-template-columns: 1fr; }
+      .cmd-example { justify-self: start; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════
+     NAVIGATION
+════════════════════════════════════════════ -->
+<nav>
+  <div class="nav-brand">
+    <span class="brand-icon">🧠</span>
+    Memorizer
+  </div>
+  <ul class="nav-links">
+    <li><a href="#como-funciona">Cómo funciona</a></li>
+    <li><a href="#instalacion">Instalación</a></li>
+    <li><a href="#comandos">Comandos</a></li>
+    <li><a href="#arquitectura">Arquitectura</a></li>
+    <li><a href="#configuracion">Configuración</a></li>
+    <li><a href="#stack">Stack</a></li>
+  </ul>
+  <span class="nav-badge">@Memorizer2Bot</span>
+</nav>
+
+<!-- ════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════ -->
+<div class="page">
+  <section id="hero">
+    <div class="hero-inner">
+      <div class="hero-text">
+        <div class="hero-eyebrow">
+          <span>🤖</span> Bot de Telegram con IA
+        </div>
+        <h1>Tu memoria<br/>personal con IA</h1>
+        <p class="hero-desc">
+          Memorizer captura todo lo que compartes en tu grupo de Telegram,
+          lo clasifica automáticamente con Claude y te permite buscarlo
+          con lenguaje natural cuando lo necesites.
+        </p>
+        <div class="hero-actions">
+          <a href="#instalacion" class="btn btn-primary">
+            Empezar →
+          </a>
+          <a href="https://github.com/csilvasantin/Memorizer" class="btn btn-secondary" target="_blank" rel="noopener">
+            Ver en GitHub
+          </a>
+        </div>
+        <div class="hero-badges">
+          <span class="badge"><span class="badge-dot"></span> Python 3.12</span>
+          <span class="badge"><span class="badge-dot"></span> Claude Sonnet</span>
+          <span class="badge"><span class="badge-dot"></span> SQLite + FTS5</span>
+          <span class="badge"><span class="badge-dot"></span> Docker</span>
+        </div>
+      </div>
+      <div class="hero-logo">🧠</div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       WHAT IT DOES
+  ════════════════════════════════════════════ -->
+  <section id="que-hace">
+    <div class="section-label">¿Qué hace?</div>
+    <h2>Un asistente que no olvida nada</h2>
+    <p class="lead">
+      Envía cualquier mensaje a tu grupo de Telegram — artículos, contactos, ideas,
+      eventos — y Memorizer se encarga del resto.
+    </p>
+    <div class="grid-3">
+      <div class="card">
+        <div class="card-icon">📥</div>
+        <h3>Captura automática</h3>
+        <p>Escucha todos los mensajes del grupo sin que tengas que hacer nada especial.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏷️</div>
+        <h3>Clasificación con IA</h3>
+        <p>Claude analiza cada mensaje y lo clasifica en categorías: trabajo, ideas, contactos y más.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <h3>Búsqueda inteligente</h3>
+        <p>Usa FTS5 para buscar por texto y Claude para responder preguntas con contexto.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h3>Resúmenes periódicos</h3>
+        <p>Genera resúmenes organizados por categoría de los últimos N días.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <h3>Detección de fuente</h3>
+        <p>Identifica si el contenido viene de LinkedIn, WhatsApp, Twitter, email u otras plataformas.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <h3>Reacciones en tiempo real</h3>
+        <p>Reacciona al mensaje con el emoji de la categoría detectada al instante.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       HOW IT WORKS
+  ════════════════════════════════════════════ -->
+  <section id="como-funciona">
+    <div class="section-label">Flujo de datos</div>
+    <h2>Cómo funciona</h2>
+    <p class="lead">
+      Desde que envías un mensaje hasta que puedes consultarlo, todo sucede en cuestión de segundos.
+    </p>
+
+    <div class="flow-wrap">
+      <div class="flow">
+        <div class="flow-step">
+          <div class="flow-box">
+            <span class="ficon">💬</span>
+            <div class="ftitle">Mensaje</div>
+            <div class="fsub">Telegram Group</div>
+          </div>
+          <div class="flow-label">Texto, foto, enlace, voz…</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <div class="flow-box">
+            <span class="ficon">🤖</span>
+            <div class="ftitle">bot.py</div>
+            <div class="fsub">Recepción</div>
+          </div>
+          <div class="flow-label">Filtra comandos y extrae contenido</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <div class="flow-box">
+            <span class="ficon">✨</span>
+            <div class="ftitle">classifier.py</div>
+            <div class="fsub">Claude API</div>
+          </div>
+          <div class="flow-label">Categoriza, resume y extrae entidades</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <div class="flow-box">
+            <span class="ficon">🗄️</span>
+            <div class="ftitle">storage.py</div>
+            <div class="fsub">SQLite + FTS5</div>
+          </div>
+          <div class="flow-label">Guarda con índice de texto completo</div>
+        </div>
+
+        <div class="flow-arrow">→</div>
+
+        <div class="flow-step">
+          <div class="flow-box">
+            <span class="ficon">🔍</span>
+            <div class="ftitle">query.py</div>
+            <div class="fsub">RAG Engine</div>
+          </div>
+          <div class="flow-label">Busca y responde con Claude</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 2rem;">
+      <div class="section-label" style="margin-bottom: 1rem;">Categorías disponibles</div>
+      <div class="categories-grid">
+        <div class="cat-pill"><span class="emoji">💼</span> trabajo</div>
+        <div class="cat-pill"><span class="emoji">👤</span> personal</div>
+        <div class="cat-pill"><span class="emoji">📌</span> referencia</div>
+        <div class="cat-pill"><span class="emoji">💡</span> idea</div>
+        <div class="cat-pill"><span class="emoji">📇</span> contacto</div>
+        <div class="cat-pill"><span class="emoji">📅</span> evento</div>
+        <div class="cat-pill"><span class="emoji">📝</span> otro</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       INSTALLATION
+  ════════════════════════════════════════════ -->
+  <section id="instalacion">
+    <div class="section-label">Guía de instalación</div>
+    <h2>Puesta en marcha</h2>
+    <p class="lead">Memorizer puede ejecutarse con Docker (recomendado) o directamente en tu entorno Python.</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab(event,'docker')">🐳 Docker (recomendado)</button>
+      <button class="tab-btn" onclick="switchTab(event,'manual')">🐍 Instalación manual</button>
+    </div>
+
+    <!-- DOCKER -->
+    <div id="tab-docker" class="tab-panel active">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Clona el repositorio</h3>
+            <div class="code-header">bash</div>
+            <pre><code><span class="syntax-prompt">$ </span><span class="syntax-cmd">git clone</span> https://github.com/csilvasantin/Memorizer.git
+<span class="syntax-prompt">$ </span><span class="syntax-cmd">cd</span> Memorizer</code></pre>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Crea tu archivo de entorno</h3>
+            <p>Copia el archivo de ejemplo y rellena tus credenciales.</p>
+            <div class="code-header">bash</div>
+            <pre><code><span class="syntax-prompt">$ </span><span class="syntax-cmd">cp</span> .env.example .env
+<span class="syntax-prompt">$ </span><span class="syntax-cmd">nano</span> .env   <span class="syntax-comment"># o tu editor preferido</span></code></pre>
+
+            <div class="code-header">.env</div>
+            <pre><code><span class="syntax-comment"># Telegram</span>
+<span class="syntax-key">TELEGRAM_BOT_TOKEN</span>=<span class="syntax-str">123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11</span>
+<span class="syntax-key">TELEGRAM_GROUP_ID</span>=<span class="syntax-str">-1001234567890</span>
+
+<span class="syntax-comment"># Anthropic</span>
+<span class="syntax-key">ANTHROPIC_API_KEY</span>=<span class="syntax-str">sk-ant-api03-...</span>
+
+<span class="syntax-comment"># Opcional</span>
+<span class="syntax-key">CLAUDE_MODEL</span>=<span class="syntax-str">claude-sonnet-4-20250514</span>
+<span class="syntax-key">DATABASE_PATH</span>=<span class="syntax-str">data/memorizer.db</span></code></pre>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Lanza con Docker Compose</h3>
+            <div class="code-header">bash</div>
+            <pre><code><span class="syntax-prompt">$ </span><span class="syntax-cmd">docker compose up</span> -d
+
+<span class="syntax-comment"># Ver logs en vivo</span>
+<span class="syntax-prompt">$ </span><span class="syntax-cmd">docker compose logs</span> -f
+
+<span class="syntax-comment"># Detener</span>
+<span class="syntax-prompt">$ </span><span class="syntax-cmd">docker compose down</span></code></pre>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h3>Añade el bot a tu grupo</h3>
+            <p>
+              Busca <code>@Memorizer2Bot</code> en Telegram, añádelo al grupo como administrador
+              para que pueda leer mensajes y reaccionar a ellos.
+            </p>
+            <div class="callout">
+              <span class="callout-icon">ℹ️</span>
+              <div>
+                <strong>¿Qué ID tiene mi grupo?</strong> Reenvía cualquier mensaje del grupo
+                a <code>@userinfobot</code> en Telegram para obtener el ID del chat.
+                Los grupos suelen tener ID negativo (–100…).
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANUAL -->
+    <div id="tab-manual" class="tab-panel">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h3>Requisitos previos</h3>
+            <p>Necesitas Python 3.12 o superior instalado en tu sistema.</p>
+            <div class="code-header">bash</div>
+            <pre><code><span class="syntax-prompt">$ </span>python --version   <span class="syntax-comment"># Python 3.12+</span></code></pre>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h3>Clona e instala dependencias</h3>
+            <div class="code-header">bash</div>
+            <pre><code><span class="syntax-prompt">$ </span><span class="syntax-cmd">git clone</span> https://github.com/csilvasantin/Memorizer.git
+<span class="syntax-prompt">$ </span><span class="syntax-cmd">cd</span> Memorizer
+<span class="syntax-prompt">$ </span>python -m venv .venv
+<span class="syntax-prompt">$ </span><span class="syntax-cmd">source</span> .venv/bin/activate   <span class="syntax-comment"># Windows: .venv\Scripts\activate</span>
+<span class="syntax-prompt">$ </span>pip install -r requirements.txt</code></pre>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h3>Configura el entorno</h3>
+            <div class="code-header">bash</div>
+            <pre><code><span class="syntax-prompt">$ </span>cp .env.example .env
+<span class="syntax-prompt">$ </span>nano .env   <span class="syntax-comment"># Añade tus tokens</span></code></pre>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <h3>Ejecuta el bot</h3>
+            <div class="code-header">bash</div>
+            <pre><code><span class="syntax-prompt">$ </span>python -m src.bot</code></pre>
+            <div class="callout warn">
+              <span class="callout-icon">⚠️</span>
+              <div>
+                <strong>Mantener activo:</strong> Para producción usa Docker o un servicio del sistema
+                (systemd/supervisor) para que el bot no se detenga al cerrar la terminal.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CREACIÓN DEL BOT -->
+    <div style="margin-top: 3rem;">
+      <h3 style="margin-bottom: 1rem; font-size: 1.1rem;">Crear el bot en Telegram</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <p>Abre Telegram y escribe a <strong>@BotFather</strong>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <p>Envía <code>/newbot</code>, elige un nombre y un username (debe terminar en <em>bot</em>).</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <p>BotFather te entregará el <strong>token</strong> — cópialo en <code>TELEGRAM_BOT_TOKEN</code>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">→</div>
+          <div class="step-content">
+            <p>Crea o usa un grupo existente. Añade el bot y otórgale permisos de administrador.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       COMMANDS
+  ════════════════════════════════════════════ -->
+  <section id="comandos">
+    <div class="section-label">Referencia de comandos</div>
+    <h2>Comandos del bot</h2>
+    <p class="lead">
+      Todos los comandos se envían directamente en el chat del grupo o en conversación privada con el bot.
+    </p>
+
+    <div class="cmd-list">
+      <div class="cmd-item">
+        <div class="cmd-name">/buscar</div>
+        <div class="cmd-desc">
+          <strong>Busca en tus memorias guardadas.</strong><br/>
+          Combina búsqueda de texto completo (FTS5) con un LLM para responder de forma contextual.
+          Si no hay resultados exactos, usa las memorias más recientes como contexto de fallback.
+        </div>
+        <div class="cmd-example">/buscar proyecto Alpha</div>
+      </div>
+
+      <div class="cmd-item">
+        <div class="cmd-name">/resumen</div>
+        <div class="cmd-desc">
+          <strong>Genera un resumen de los últimos N días.</strong><br/>
+          Por defecto muestra los últimos 7 días. Pasa un número para cambiar el período.
+          El resumen está organizado por categorías y es generado por Claude.
+        </div>
+        <div class="cmd-example">/resumen 30</div>
+      </div>
+
+      <div class="cmd-item">
+        <div class="cmd-name">/stats</div>
+        <div class="cmd-desc">
+          <strong>Muestra estadísticas de la base de datos.</strong><br/>
+          Total de memorias guardadas, desglose por categoría y por fuente detectada
+          (LinkedIn, WhatsApp, web, etc.).
+        </div>
+        <div class="cmd-example">/stats</div>
+      </div>
+
+      <div class="cmd-item">
+        <div class="cmd-name">/help</div>
+        <div class="cmd-desc">
+          <strong>Muestra la ayuda del bot.</strong><br/>
+          Lista todos los comandos disponibles con una breve descripción. También disponible
+          con <code>/start</code> al iniciar conversación con el bot.
+        </div>
+        <div class="cmd-example">/help</div>
+      </div>
+    </div>
+
+    <div style="margin-top: 2rem;">
+      <div class="callout">
+        <span class="callout-icon">💡</span>
+        <div>
+          <strong>Captura automática:</strong> No necesitas usar ningún comando para guardar información.
+          Cada mensaje que envíes al grupo se captura, clasifica y almacena automáticamente.
+          El bot reacciona con el emoji de la categoría detectada para confirmar que procesó el mensaje.
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 1.5rem;">
+      <h3 style="margin-bottom: 1rem;">Tipos de contenido soportados</h3>
+      <div class="grid-3">
+        <div class="card" style="padding: 1rem 1.25rem;">
+          <span style="font-size: 1.5rem;">📝</span>
+          <h3 style="font-size: 0.9rem; margin-top: 0.4rem;">Texto</h3>
+          <p>Mensajes de texto plano</p>
+        </div>
+        <div class="card" style="padding: 1rem 1.25rem;">
+          <span style="font-size: 1.5rem;">🖼️</span>
+          <h3 style="font-size: 0.9rem; margin-top: 0.4rem;">Fotos + caption</h3>
+          <p>Imagen con descripción</p>
+        </div>
+        <div class="card" style="padding: 1rem 1.25rem;">
+          <span style="font-size: 1.5rem;">🎥</span>
+          <h3 style="font-size: 0.9rem; margin-top: 0.4rem;">Video + caption</h3>
+          <p>Video con descripción</p>
+        </div>
+        <div class="card" style="padding: 1rem 1.25rem;">
+          <span style="font-size: 1.5rem;">📄</span>
+          <h3 style="font-size: 0.9rem; margin-top: 0.4rem;">Documentos</h3>
+          <p>Archivos con o sin caption</p>
+        </div>
+        <div class="card" style="padding: 1rem 1.25rem;">
+          <span style="font-size: 1.5rem;">🔗</span>
+          <h3 style="font-size: 0.9rem; margin-top: 0.4rem;">URLs</h3>
+          <p>Extraídas y almacenadas</p>
+        </div>
+        <div class="card" style="padding: 1rem 1.25rem;">
+          <span style="font-size: 1.5rem;">🎤</span>
+          <h3 style="font-size: 0.9rem; margin-top: 0.4rem;">Voz / Audio</h3>
+          <p>Registrado como tipo</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       ARCHITECTURE
+  ════════════════════════════════════════════ -->
+  <section id="arquitectura">
+    <div class="section-label">Arquitectura</div>
+    <h2>Módulos del sistema</h2>
+    <p class="lead">
+      Memorizer está organizado en módulos desacoplados. Cada fichero tiene una responsabilidad clara.
+    </p>
+
+    <div class="module-list">
+
+      <div class="module">
+        <div class="module-header">
+          <span style="font-size: 1.5rem;">🤖</span>
+          <div>
+            <div class="module-file">src/bot.py</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">Punto de entrada · Handlers de Telegram</div>
+          </div>
+          <span class="module-tag">CORE</span>
+        </div>
+        <div class="module-body">
+          <p>
+            Orquesta toda la aplicación. Registra los handlers de comandos y mensajes,
+            inicializa la base de datos al arrancar y coordina el flujo: recepción →
+            clasificación → almacenamiento → reacción.
+          </p>
+          <ul class="func-list">
+            <li><code>handle_message()</code> <span>Captura todos los mensajes del grupo, delega en classifier y storage</span></li>
+            <li><code>cmd_buscar()</code> <span>Handler de <code>/buscar</code> — llama a <code>answer_query()</code></span></li>
+            <li><code>cmd_resumen()</code> <span>Handler de <code>/resumen [dias]</code> — llama a <code>generate_summary()</code></span></li>
+            <li><code>cmd_stats()</code> <span>Handler de <code>/stats</code> — muestra conteos por categoría y fuente</span></li>
+            <li><code>_get_content_type()</code> <span>Normaliza el tipo de contenido del mensaje (text, photo, video…)</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-header">
+          <span style="font-size: 1.5rem;">✨</span>
+          <div>
+            <div class="module-file">src/classifier.py</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">Clasificación IA · Extracción de entidades</div>
+          </div>
+          <span class="module-tag">AI</span>
+        </div>
+        <div class="module-body">
+          <p>
+            Envía cada mensaje a Claude con un prompt estructurado y parsea la respuesta JSON.
+            Incluye detección local de fuente como fallback y extracción de URLs con regex.
+            Si la API falla, devuelve una clasificación básica sin romper el flujo.
+          </p>
+          <ul class="func-list">
+            <li><code>classify_message()</code> <span>Función principal — llama a Claude, parsea JSON, maneja errores</span></li>
+            <li><code>detect_source()</code> <span>Detecta la plataforma de origen por keywords (linkedin, whatsapp, twitter…)</span></li>
+            <li><code>extract_urls()</code> <span>Extrae URLs del texto con regex</span></li>
+          </ul>
+          <div class="callout" style="margin-top: 1rem;">
+            <span class="callout-icon">🔧</span>
+            <div>
+              El prompt le pide a Claude que devuelva: <code>category</code>, <code>summary</code>,
+              <code>entities</code>, <code>urls</code> y <code>source_hint</code> en un único bloque JSON.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-header">
+          <span style="font-size: 1.5rem;">🗄️</span>
+          <div>
+            <div class="module-file">src/storage.py</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">Persistencia · SQLite con FTS5</div>
+          </div>
+          <span class="module-tag">DB</span>
+        </div>
+        <div class="module-body">
+          <p>
+            Gestiona la base de datos SQLite con una tabla principal <code>memories</code>
+            y una tabla virtual FTS5 <code>memories_fts</code> sincronizada mediante triggers.
+            Todas las operaciones son asíncronas gracias a <code>aiosqlite</code>.
+          </p>
+          <ul class="func-list">
+            <li><code>init_db()</code> <span>Crea las tablas y la tabla virtual FTS5 si no existen</span></li>
+            <li><code>save_memory()</code> <span>Inserta una memoria; los triggers actualizan el índice FTS automáticamente</span></li>
+            <li><code>search()</code> <span>Busca con <code>MATCH</code> en FTS5 ordenando por relevancia (<code>rank</code>)</span></li>
+            <li><code>get_recent()</code> <span>Últimas N memorias ordenadas por fecha</span></li>
+            <li><code>get_by_category()</code> <span>Filtra memorias por categoría</span></li>
+            <li><code>get_by_date_range()</code> <span>Memorias entre dos fechas (usado por <code>/resumen</code>)</span></li>
+            <li><code>get_stats()</code> <span>Totales y agrupaciones por categoría y fuente</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-header">
+          <span style="font-size: 1.5rem;">🔍</span>
+          <div>
+            <div class="module-file">src/query.py</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">Motor RAG · Respuestas con contexto</div>
+          </div>
+          <span class="module-tag">RAG</span>
+        </div>
+        <div class="module-body">
+          <p>
+            Implementa el patrón RAG (<em>Retrieval-Augmented Generation</em>): busca las memorias
+            más relevantes en SQLite, las formatea como contexto y las pasa a Claude para que
+            genere una respuesta natural. Si la búsqueda exacta no produce resultados, usa
+            las memorias más recientes como fallback.
+          </p>
+          <ul class="func-list">
+            <li><code>answer_query()</code> <span>Busca en FTS5, construye contexto y genera respuesta con Claude</span></li>
+            <li><code>generate_summary()</code> <span>Recupera memorias del período y genera resumen organizado por categorías</span></li>
+            <li><code>get_stats_text()</code> <span>Formatea las estadísticas de storage como texto legible</span></li>
+            <li><code>_format_results()</code> <span>Serializa resultados SQL en texto para el contexto del prompt</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="module">
+        <div class="module-header">
+          <span style="font-size: 1.5rem;">⚙️</span>
+          <div>
+            <div class="module-file">src/config.py</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">Configuración central · Variables de entorno</div>
+          </div>
+          <span class="module-tag">CONFIG</span>
+        </div>
+        <div class="module-body">
+          <p>
+            Carga todas las variables de entorno desde <code>.env</code> usando <code>python-dotenv</code>
+            y las expone como constantes tipadas. También define las listas de categorías y
+            las palabras clave para detección de fuentes.
+          </p>
+          <ul class="func-list">
+            <li><code>CATEGORIES</code> <span>Lista de categorías válidas para clasificación</span></li>
+            <li><code>SOURCE_KEYWORDS</code> <span>Dict con palabras clave por plataforma para detección local</span></li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Schema -->
+    <div style="margin-top: 2.5rem;">
+      <h3 style="margin-bottom: 1rem;">Esquema de base de datos</h3>
+      <div class="code-header">SQLite — tabla memories</div>
+      <pre><code><span class="syntax-cmd">CREATE TABLE</span> memories (
+  id                  INTEGER  <span class="syntax-key">PRIMARY KEY AUTOINCREMENT</span>,
+  telegram_message_id INTEGER  <span class="syntax-key">UNIQUE</span>,
+  chat_id             INTEGER,
+  author              TEXT,
+  content             TEXT     <span class="syntax-key">NOT NULL</span>,
+  content_type        TEXT     <span class="syntax-key">DEFAULT</span> <span class="syntax-str">'text'</span>,
+  source              TEXT     <span class="syntax-key">DEFAULT</span> <span class="syntax-str">'unknown'</span>,
+  category            TEXT     <span class="syntax-key">DEFAULT</span> <span class="syntax-str">'otro'</span>,
+  summary             TEXT,
+  entities            TEXT,    <span class="syntax-comment">-- JSON array</span>
+  urls                TEXT,    <span class="syntax-comment">-- JSON array</span>
+  created_at          TIMESTAMP <span class="syntax-key">DEFAULT CURRENT_TIMESTAMP</span>,
+  processed_at        TIMESTAMP
+);
+
+<span class="syntax-comment">-- Tabla virtual FTS5 sincronizada por triggers</span>
+<span class="syntax-cmd">CREATE VIRTUAL TABLE</span> memories_fts <span class="syntax-key">USING</span> fts5(
+  content, summary, entities, author, source, category,
+  <span class="syntax-key">content</span>=<span class="syntax-str">'memories'</span>, <span class="syntax-key">content_rowid</span>=<span class="syntax-str">'id'</span>
+);</code></pre>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       CONFIGURATION
+  ════════════════════════════════════════════ -->
+  <section id="configuracion">
+    <div class="section-label">Referencia de configuración</div>
+    <h2>Variables de entorno</h2>
+    <p class="lead">
+      Toda la configuración se gestiona mediante el archivo <code>.env</code> en la raíz del proyecto.
+    </p>
+
+    <div class="config-wrap">
+      <table class="config-table">
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Descripción</th>
+            <th>Por defecto</th>
+            <th>Requerida</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>TELEGRAM_BOT_TOKEN</td>
+            <td>Token del bot obtenido de @BotFather</td>
+            <td>—</td>
+            <td><span class="required">Requerida</span></td>
+          </tr>
+          <tr>
+            <td>TELEGRAM_GROUP_ID</td>
+            <td>ID del grupo de Telegram a monitorizar. Usa <code>0</code> para escuchar cualquier grupo.</td>
+            <td><code>0</code></td>
+            <td><span class="optional">Opcional</span></td>
+          </tr>
+          <tr>
+            <td>ANTHROPIC_API_KEY</td>
+            <td>Clave API de Anthropic para acceder a Claude. Obtenida en console.anthropic.com</td>
+            <td>—</td>
+            <td><span class="required">Requerida</span></td>
+          </tr>
+          <tr>
+            <td>CLAUDE_MODEL</td>
+            <td>Identificador del modelo Claude a usar para clasificación y respuestas</td>
+            <td><code>claude-sonnet-4-20250514</code></td>
+            <td><span class="optional">Opcional</span></td>
+          </tr>
+          <tr>
+            <td>DATABASE_PATH</td>
+            <td>Ruta al archivo SQLite. Se crea automáticamente si no existe.</td>
+            <td><code>data/memorizer.db</code></td>
+            <td><span class="optional">Opcional</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn" style="margin-top: 1.5rem;">
+      <span class="callout-icon">🔒</span>
+      <div>
+        <strong>Seguridad:</strong> Nunca subas tu archivo <code>.env</code> al repositorio.
+        El <code>.gitignore</code> ya lo excluye. Para producción usa secretos del sistema
+        (variables de entorno del sistema operativo, Docker secrets, etc.).
+      </div>
+    </div>
+
+    <div style="margin-top: 2rem;">
+      <h3 style="margin-bottom: 0.75rem;">Obtener el ID de tu grupo</h3>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <p>Añade el bot <code>@userinfobot</code> a tu grupo de Telegram.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <p>O reenvía cualquier mensaje del grupo a <code>@userinfobot</code> en privado.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <p>El bot responderá con el ID del chat (número negativo para grupos: <code>-1001234567890</code>).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       TECH STACK
+  ════════════════════════════════════════════ -->
+  <section id="stack">
+    <div class="section-label">Tecnologías</div>
+    <h2>Stack tecnológico</h2>
+    <p class="lead">Herramientas modernas seleccionadas por su fiabilidad, rendimiento y facilidad de despliegue.</p>
+
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="tech-icon">🐍</div>
+        <div class="tech-name">Python 3.12</div>
+        <div class="tech-ver">≥ 3.12</div>
+        <div class="tech-desc">
+          Lenguaje principal. Usa <code>asyncio</code> y sintaxis moderna de tipos
+          (<code>str | None</code>, <code>list[dict]</code>).
+        </div>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">✈️</div>
+        <div class="tech-name">python-telegram-bot</div>
+        <div class="tech-ver">≥ 21.0</div>
+        <div class="tech-desc">
+          Framework asíncrono para la API de Telegram. Maneja polling,
+          handlers y contexto de manera elegante.
+        </div>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">🧠</div>
+        <div class="tech-name">Anthropic SDK</div>
+        <div class="tech-ver">≥ 0.40.0</div>
+        <div class="tech-desc">
+          SDK oficial de Anthropic para acceder a Claude.
+          Usa el modelo <em>claude-sonnet-4</em> para clasificación y generación.
+        </div>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">🗄️</div>
+        <div class="tech-name">SQLite + FTS5</div>
+        <div class="tech-ver">Built-in</div>
+        <div class="tech-desc">
+          Base de datos local sin servidor con extensión FTS5 para búsqueda de texto completo
+          con ranking por relevancia.
+        </div>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">⚡</div>
+        <div class="tech-name">aiosqlite</div>
+        <div class="tech-ver">≥ 0.20.0</div>
+        <div class="tech-desc">
+          Wrapper asíncrono de SQLite compatible con <code>asyncio</code>,
+          evita bloquear el event loop durante operaciones I/O.
+        </div>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">🐳</div>
+        <div class="tech-name">Docker</div>
+        <div class="tech-ver">Compose v2</div>
+        <div class="tech-desc">
+          Contenedor basado en <code>python:3.12-slim</code>. El volumen
+          <code>./data</code> persiste la base de datos entre reinicios.
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 2.5rem;">
+      <h3 style="margin-bottom: 0.75rem;">Dependencias de Python</h3>
+      <div class="code-header">requirements.txt</div>
+      <pre><code>python-telegram-bot>=21.0   <span class="syntax-comment"># Framework Telegram</span>
+anthropic>=0.40.0           <span class="syntax-comment"># SDK de Claude</span>
+python-dotenv>=1.0.0        <span class="syntax-comment"># Carga de variables de entorno</span>
+aiosqlite>=0.20.0           <span class="syntax-comment"># SQLite asíncrono</span></code></pre>
+    </div>
+  </section>
+
+</div><!-- /page -->
+
+<!-- ════════════════════════════════════════════
+     FOOTER
+════════════════════════════════════════════ -->
+<footer>
+  <div class="page">
+    <p style="margin-bottom: 0.5rem;">
+      <strong style="color: var(--text-muted);">Memorizer</strong> — Bot personal de memoria para Telegram
+    </p>
+    <p>
+      <a href="https://github.com/csilvasantin/Memorizer" target="_blank" rel="noopener">GitHub</a>
+      &nbsp;·&nbsp;
+      Powered by <a href="https://www.anthropic.com" target="_blank" rel="noopener">Claude</a>
+      &nbsp;·&nbsp;
+      Documentación generada con ♥
+    </p>
+  </div>
+</footer>
+
+<script>
+  function switchTab(e, tabId) {
+    // Deactivate all
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+
+    // Activate selected
+    e.target.classList.add('active');
+    document.getElementById('tab-' + tabId).classList.add('active');
+  }
+
+  // Highlight active nav link on scroll
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-links a');
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => {
+          link.style.color = '';
+          link.style.background = '';
+          if (link.getAttribute('href') === '#' + entry.target.id) {
+            link.style.color = 'var(--text)';
+            link.style.background = 'var(--bg-card2)';
+          }
+        });
+      }
+    });
+  }, { threshold: 0.3 });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>
