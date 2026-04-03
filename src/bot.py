@@ -2,9 +2,10 @@ import logging
 import os
 import subprocess
 import sys
-from telegram import Update, ReactionTypeEmoji
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReactionTypeEmoji
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     MessageHandler,
     ContextTypes,
@@ -132,22 +133,48 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     destination_group = get_destination_group(category)
 
     if destination_group:
+        review = result.get("review")
+        rating = review.get("rating", 0) if review else 0
         forwarded = format_forwarded_message(
             category=category,
             content=content,
             summary=result.get("summary", ""),
             recipients=recipients,
             author=author,
-            review=result.get("review"),
+            review=review,
         )
+
+        # Add Boost button if there's a rating
+        keyboard = None
+        if rating:
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"🚀 Boost ({rating}/10)", callback_data="boost")]
+            ])
+
         try:
-            await context.bot.send_message(
+            sent = await context.bot.send_message(
                 chat_id=destination_group,
                 text=forwarded,
                 parse_mode="Markdown",
+                reply_markup=keyboard,
             )
             logger.info(f"Forwarded to group {destination_group} (category: {category})")
             _play_notification()
+
+            # Save boost record for callback tracking
+            if rating:
+                memory_id = await storage.save_memory_get_id(
+                    telegram_message_id=message.message_id,
+                    chat_id=update.effective_chat.id,
+                )
+                if memory_id:
+                    await storage.save_boost(
+                        memory_id=memory_id,
+                        forwarded_chat_id=destination_group,
+                        forwarded_message_id=sent.message_id,
+                        rating=int(rating) if isinstance(rating, (int, float)) else 0,
+                    )
+
             # Write preview to file for CLI monitoring
             preview_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "last_preview.txt")
             with open(preview_path, "w") as f:
@@ -188,6 +215,66 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response)
 
 
+async def handle_boost(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle Boost button press."""
+    query = update.callback_query
+    await query.answer()
+
+    chat_id = query.message.chat_id
+    message_id = query.message.message_id
+
+    result = await storage.apply_boost(chat_id, message_id)
+    if not result:
+        await query.answer("No se encontró el registro", show_alert=True)
+        return
+
+    if result.get("boosted_at") and result.get("boosted") == 1:
+        # Already boosted before this call — check if we just applied it
+        original_text = query.message.text or ""
+        if "🏆 TOP" in original_text:
+            await query.answer("Ya está marcado como TOP", show_alert=True)
+            return
+
+    # Edit message to show TOP badge
+    original_text = query.message.text or ""
+    rating = result.get("rating", 0)
+    top_text = original_text.replace(
+        f"🎯 *Valoración:* {rating}/10",
+        f"🏆 *TOP · Valoración:* {rating}/10",
+    )
+    if top_text == original_text:
+        # Fallback: prepend TOP
+        top_text = f"🏆 *TOP*\n\n{original_text}"
+
+    try:
+        await query.message.edit_text(
+            text=top_text,
+            parse_mode="Markdown",
+        )
+        logger.info(f"Boosted message {message_id} in chat {chat_id} (rating: {rating})")
+    except Exception as e:
+        logger.warning(f"Could not edit boosted message: {e}")
+
+
+async def cmd_top(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /top command — list top boosted content."""
+    top_items = await storage.get_top(limit=10)
+    if not top_items:
+        await update.message.reply_text("No hay contenido TOP todavía. Usa el botón 🚀 Boost para marcar contenido.")
+        return
+
+    lines = ["🏆 *TOP Content*\n"]
+    for i, item in enumerate(top_items, 1):
+        rating = item.get("rating", 0)
+        summary = item.get("summary", item.get("content", "")[:80])
+        category = item.get("category", "otro").upper()
+        stars = "⭐" * min(rating, 10)
+        lines.append(f"{i}. *[{category}]* {rating}/10 {stars}")
+        lines.append(f"   _{summary}_\n")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command."""
     text = (
@@ -197,6 +284,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/buscar <texto> - Buscar en tus memorias\n"
         "/resumen [dias] - Resumen de los últimos N días (default: 7)\n"
         "/stats - Estadísticas de memorias guardadas\n"
+        "/top - Ver contenido marcado como TOP\n"
         "/help - Mostrar esta ayuda"
     )
     await update.message.reply_text(text)
@@ -218,8 +306,12 @@ def main():
     app.add_handler(CommandHandler("buscar", cmd_buscar))
     app.add_handler(CommandHandler("resumen", cmd_resumen))
     app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("top", cmd_top))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))
+
+    # Boost callback
+    app.add_handler(CallbackQueryHandler(handle_boost, pattern="^boost$"))
 
     # Capture all non-command messages
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))

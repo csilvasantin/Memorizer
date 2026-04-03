@@ -21,6 +21,17 @@ CREATE TABLE IF NOT EXISTS memories (
     processed_at TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS boosts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    memory_id INTEGER REFERENCES memories(id),
+    forwarded_chat_id INTEGER,
+    forwarded_message_id INTEGER,
+    rating INTEGER DEFAULT 0,
+    boosted INTEGER DEFAULT 0,
+    boosted_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
     content, summary, entities, author, source, category,
     content='memories',
@@ -92,6 +103,16 @@ class MemoryStorage:
             await db.commit()
             return cursor.lastrowid
 
+    async def save_memory_get_id(self, telegram_message_id: int, chat_id: int) -> int | None:
+        """Get the ID of a memory by its telegram_message_id."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                "SELECT id FROM memories WHERE telegram_message_id = ? AND chat_id = ?",
+                (telegram_message_id, chat_id),
+            )
+            row = await cursor.fetchone()
+            return row[0] if row else None
+
     async def search(self, query: str, limit: int = 20) -> list[dict]:
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -133,6 +154,59 @@ class MemoryStorage:
             cursor = await db.execute(
                 "SELECT * FROM memories WHERE created_at BETWEEN ? AND ? ORDER BY created_at DESC",
                 (start, end),
+            )
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    async def save_boost(
+        self,
+        memory_id: int,
+        forwarded_chat_id: int,
+        forwarded_message_id: int,
+        rating: int,
+    ) -> int:
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """INSERT INTO boosts (memory_id, forwarded_chat_id, forwarded_message_id, rating)
+                   VALUES (?, ?, ?, ?)""",
+                (memory_id, forwarded_chat_id, forwarded_message_id, rating),
+            )
+            await db.commit()
+            return cursor.lastrowid
+
+    async def apply_boost(self, forwarded_chat_id: int, forwarded_message_id: int) -> dict | None:
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                """SELECT b.*, m.content, m.summary, m.category, m.author
+                   FROM boosts b JOIN memories m ON m.id = b.memory_id
+                   WHERE b.forwarded_chat_id = ? AND b.forwarded_message_id = ?""",
+                (forwarded_chat_id, forwarded_message_id),
+            )
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            row = dict(row)
+            if row["boosted"]:
+                return row  # already boosted
+            await db.execute(
+                "UPDATE boosts SET boosted = 1, boosted_at = ? WHERE id = ?",
+                (datetime.now().isoformat(), row["id"]),
+            )
+            await db.commit()
+            row["boosted"] = 1
+            return row
+
+    async def get_top(self, limit: int = 10) -> list[dict]:
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                """SELECT m.*, b.rating, b.boosted, b.boosted_at
+                   FROM boosts b JOIN memories m ON m.id = b.memory_id
+                   WHERE b.boosted = 1
+                   ORDER BY b.rating DESC, b.boosted_at DESC
+                   LIMIT ?""",
+                (limit,),
             )
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
