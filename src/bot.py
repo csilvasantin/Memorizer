@@ -1,5 +1,5 @@
 import logging
-from telegram import Update
+from telegram import Update, ReactionTypeEmoji
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -107,9 +107,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
     emoji = category_emoji.get(result["category"], "📝")
     try:
-        await message.set_reaction(emoji)
-    except Exception:
-        pass  # Reactions may not be supported
+        await message.set_reaction([ReactionTypeEmoji(emoji=emoji)])
+    except Exception as e:
+        logger.warning(f"Could not set reaction: {e}")
 
     # Forward to destination group
     category = result["category"]
