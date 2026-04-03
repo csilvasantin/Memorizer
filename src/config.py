@@ -8,6 +8,12 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_ID", "0"))
 
+# Destination groups
+TELEGRAM_NEGOCIO_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_NEGOCIO", "0"))
+TELEGRAM_TECNOLOGIA_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_TECNOLOGIA", "0"))
+TELEGRAM_CREATIVIDAD_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_CREATIVIDAD", "0"))
+TELEGRAM_MISCELANEA_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_MISCELANEA", "0"))
+
 # Anthropic
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
@@ -40,6 +46,21 @@ COUNCIL_MEMBERS = {
     "CSO": {"legend": "George Lucas", "current": "Ryan Reynolds", "side": "right"},
     "CXO": {"legend": "Es Devlin", "current": "Carlo Ratti", "side": "right"},
     "CDO": {"legend": "Dieter Rams", "current": "Jony Ive", "side": "right"},
+}
+
+# Destination group per category (resolved after group IDs are loaded)
+# Keys match category names; value is one of the TELEGRAM_*_GROUP_ID constants
+CATEGORY_DESTINATION = {
+    "negocio": "negocio",
+    "tecnología": "tecnologia",
+    "creatividad": "creatividad",
+    "otro": "miscelanea",
+    "referencia": "negocio",
+    "contacto": "negocio",
+    "evento": "negocio",
+    "trabajo": "negocio",
+    "idea": "creatividad",
+    "personal": "miscelanea",
 }
 
 # Routing rules: category -> list of sides ("left", "right") or "all" or "none"
