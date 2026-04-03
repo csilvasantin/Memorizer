@@ -17,6 +17,8 @@ env/
 # Data
 data/*.db
 data/*.json
+data/*.log
+data/last_preview.txt
 !data/.gitkeep
 
 # IDE

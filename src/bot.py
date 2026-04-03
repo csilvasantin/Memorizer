@@ -1,4 +1,7 @@
 import logging
+import os
+import subprocess
+import sys
 from telegram import Update, ReactionTypeEmoji
 from telegram.ext import (
     Application,
@@ -25,6 +28,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 storage = MemoryStorage()
+
+NOTIFICATION_SOUND = os.path.expanduser("~/Library/Sounds/notification.wav")
+
+
+def _play_notification():
+    """Play notification sound on macOS (non-blocking)."""
+    if sys.platform == "darwin" and os.path.exists(NOTIFICATION_SOUND):
+        subprocess.Popen(
+            ["afplay", NOTIFICATION_SOUND],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
 
 def _get_content_type(message) -> tuple[str, str]:
@@ -123,6 +138,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             summary=result.get("summary", ""),
             recipients=recipients,
             author=author,
+            review=result.get("review"),
         )
         try:
             await context.bot.send_message(
@@ -131,6 +147,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="Markdown",
             )
             logger.info(f"Forwarded to group {destination_group} (category: {category})")
+            _play_notification()
+            # Write preview to file for CLI monitoring
+            preview_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "last_preview.txt")
+            with open(preview_path, "w") as f:
+                f.write(forwarded + "\n")
         except Exception as e:
             logger.warning(f"Could not forward to destination group {destination_group}: {e}")
 

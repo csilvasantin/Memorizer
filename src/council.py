@@ -29,6 +29,7 @@ def format_forwarded_message(
     summary: str,
     recipients: list[dict],
     author: str,
+    review: dict | None = None,
 ) -> str:
     """Format the message to send to the destination group."""
     category_meta = {
@@ -54,6 +55,19 @@ def format_forwarded_message(
     # Trim long content
     display_content = content if len(content) <= 400 else content[:400] + "…"
     lines.append(display_content)
+
+    if review:
+        rating = review.get("rating", "?")
+        verdict = review.get("verdict", "")
+        tags = review.get("tags", [])
+        stars = "⭐" * min(int(rating) if isinstance(rating, (int, float)) else 0, 10)
+        lines.append("")
+        lines.append(f"🎯 *Valoración:* {rating}/10 {stars}")
+        if verdict:
+            lines.append(f"_{verdict}_")
+        if tags:
+            tag_str = " · ".join(f"#{t.replace(' ', '')}" for t in tags)
+            lines.append(f"🏷 {tag_str}")
 
     if recipients:
         lines.append("")
