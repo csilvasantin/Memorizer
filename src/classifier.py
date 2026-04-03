@@ -1,7 +1,10 @@
 import json
+import logging
 import re
 from anthropic import AsyncAnthropic
 from src.config import ANTHROPIC_API_KEY, CLAUDE_MODEL, CATEGORIES, SOURCE_KEYWORDS
+
+logger = logging.getLogger(__name__)
 
 client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 
@@ -81,6 +84,7 @@ async def classify_message(content: str) -> dict:
             "source": result.get("source_hint", source),
         }
     except Exception as e:
+        logger.warning(f"Classification failed, using fallback: {e}")
         # Fallback: basic classification without AI
         return {
             "category": "otro",
