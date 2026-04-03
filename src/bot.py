@@ -275,6 +275,29 @@ async def cmd_top(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+async def cmd_ranking(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /ranking command — show all rated content sorted by score."""
+    items = await storage.get_ranking(limit=15)
+    if not items:
+        await update.message.reply_text("No hay contenido valorado todavía.")
+        return
+
+    lines = ["📊 *Ranking de contenido*\n"]
+    for i, item in enumerate(items, 1):
+        rating = item.get("rating", 0)
+        boosted = item.get("boosted", 0)
+        summary = item.get("summary", item.get("content", "")[:80])
+        category = item.get("category", "otro").upper()
+        author = item.get("author", "")
+        stars = "⭐" * min(rating, 10)
+        top_badge = "🏆 " if boosted else ""
+        lines.append(f"{i}. {top_badge}*[{category}]* {rating}/10 {stars}")
+        lines.append(f"   _{summary}_")
+        lines.append(f"   — {author}\n")
+
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+
+
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command."""
     text = (
@@ -284,7 +307,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/buscar <texto> - Buscar en tus memorias\n"
         "/resumen [dias] - Resumen de los últimos N días (default: 7)\n"
         "/stats - Estadísticas de memorias guardadas\n"
-        "/top - Ver contenido marcado como TOP\n"
+        "/ranking - Ver ranking de contenido por valoración\n"
+        "/top - Ver solo contenido marcado como TOP\n"
         "/help - Mostrar esta ayuda"
     )
     await update.message.reply_text(text)
@@ -307,6 +331,7 @@ def main():
     app.add_handler(CommandHandler("resumen", cmd_resumen))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("top", cmd_top))
+    app.add_handler(CommandHandler("ranking", cmd_ranking))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))
 

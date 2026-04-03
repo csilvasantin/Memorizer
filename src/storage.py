@@ -211,6 +211,20 @@ class MemoryStorage:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
 
+    async def get_ranking(self, limit: int = 15) -> list[dict]:
+        """Get all rated content ordered by rating (boosted first, then by rating)."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            cursor = await db.execute(
+                """SELECT m.*, b.rating, b.boosted, b.boosted_at
+                   FROM boosts b JOIN memories m ON m.id = b.memory_id
+                   ORDER BY b.boosted DESC, b.rating DESC, b.created_at DESC
+                   LIMIT ?""",
+                (limit,),
+            )
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
     async def get_stats(self) -> dict:
         async with aiosqlite.connect(self.db_path) as db:
             total = await db.execute_fetchall("SELECT COUNT(*) FROM memories")
