@@ -25,7 +25,36 @@ CATEGORIES = [
     "contacto",
     "evento",
     "otro",
+    "tecnología",
+    "creatividad",
+    "negocio",
 ]
+
+# Admira Next Board of Directors (Consejo)
+COUNCIL_MEMBERS = {
+    "CEO": {"legend": "Steve Jobs", "current": "Elon Musk", "side": "left"},
+    "CFO": {"legend": "Warren Buffett", "current": "Ruth Porat", "side": "left"},
+    "COO": {"legend": "Tim Cook", "current": "Gwynne Shotwell", "side": "left"},
+    "CTO": {"legend": "Steve Wozniak", "current": "Jensen Huang", "side": "left"},
+    "CCO": {"legend": "Walt Disney", "current": "John Lasseter", "side": "right"},
+    "CSO": {"legend": "George Lucas", "current": "Ryan Reynolds", "side": "right"},
+    "CXO": {"legend": "Es Devlin", "current": "Carlo Ratti", "side": "right"},
+    "CDO": {"legend": "Dieter Rams", "current": "Jony Ive", "side": "right"},
+}
+
+# Routing rules: category -> list of sides ("left", "right") or "all" or "none"
+ROUTING_RULES = {
+    "tecnología": ["left"],
+    "trabajo": ["left"],
+    "creatividad": ["right"],
+    "idea": ["right"],
+    "negocio": ["all"],
+    "referencia": ["all"],
+    "contacto": ["all"],
+    "evento": ["all"],
+    "otro": ["none"],
+    "personal": ["none"],
+}
 
 # Source detection keywords
 SOURCE_KEYWORDS = {

@@ -14,6 +14,18 @@ Dado el siguiente mensaje, devuelve un JSON con:
 - "urls": lista de URLs encontradas
 - "source_hint": si detectas de qué red social/plataforma viene (linkedin, whatsapp, twitter, instagram, email, web, unknown)
 
+Guía para elegir la categoría correcta:
+- "tecnología": artículos, noticias, herramientas, productos o tendencias tecnológicas (IA, software, hardware, startups tech)
+- "creatividad": contenido sobre diseño, arte, storytelling, branding, experiencias, publicidad creativa, arquitectura, moda
+- "negocio": estrategia empresarial, mercados, finanzas, inversión, management, liderazgo, industria
+- "trabajo": tareas, proyectos, reuniones, pendientes laborales (no es contenido externo, es acción interna)
+- "idea": ocurrencias propias, brainstorming, conceptos nuevos sin desarrollar
+- "referencia": artículos de consulta, documentación, libros, recursos de aprendizaje general
+- "contacto": datos de personas, tarjetas, perfiles
+- "evento": conferencias, meetups, fechas importantes, citas
+- "personal": notas privadas, recordatorios personales, vida cotidiana
+- "otro": cualquier cosa que no encaje en las anteriores
+
 Responde SOLO con el JSON, sin texto adicional.
 
 Mensaje:
