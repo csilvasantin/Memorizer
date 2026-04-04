@@ -302,26 +302,130 @@ async def cmd_ranking(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_yarig(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /yarig command — show today's tasks from Yarig.ai."""
-    await update.message.reply_text("Consultando Yarig.ai...")
     summary = await yarig.get_today_summary()
     await update.message.reply_text(summary, parse_mode="Markdown")
+
+
+async def cmd_fichar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /fichar command — clock in or out."""
+    arg = " ".join(context.args).strip().lower() if context.args else ""
+    if arg in ("salida", "out", "fin"):
+        result = await yarig.fichar_salida()
+    else:
+        result = await yarig.fichar_entrada()
+    await update.message.reply_text(result)
+
+
+async def cmd_tarea(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /tarea command — add a new task."""
+    if not context.args:
+        await update.message.reply_text("Uso: /tarea <descripción>\nEjemplo: /tarea Revisar diseño del dashboard")
+        return
+    desc = " ".join(context.args)
+    result = await yarig.add_task(desc)
+    await update.message.reply_text(result)
+
+
+async def cmd_iniciar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /iniciar command — start a task by index."""
+    idx = 1
+    if context.args:
+        try:
+            idx = int(context.args[0])
+        except ValueError:
+            pass
+    result = await yarig.iniciar_tarea(idx)
+    await update.message.reply_text(result)
+
+
+async def cmd_parar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /parar command — stop the active task."""
+    result = await yarig.parar_tarea()
+    await update.message.reply_text(result)
+
+
+async def cmd_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /score command — show Yarig score."""
+    result = await yarig.get_score()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_historial(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /historial command — show task history."""
+    result = await yarig.get_history()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_extras(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /extras command — start or stop overtime."""
+    arg = " ".join(context.args).strip().lower() if context.args else ""
+    if arg in ("fin", "stop", "parar"):
+        result = await yarig.extras_fin()
+    else:
+        result = await yarig.extras_inicio()
+    await update.message.reply_text(result)
+
+
+async def cmd_equipo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /equipo command — show team members."""
+    result = await yarig.get_team()
+    await update.message.reply_text(result, parse_mode="Markdown")
+
+
+async def cmd_pedir(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /pedir command — send task request to a teammate."""
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "Uso: /pedir <nombre> <descripción>\n"
+            "Ejemplo: /pedir David Revisar el presupuesto Q2"
+        )
+        return
+
+    name = context.args[0]
+    text = " ".join(context.args[1:])
+
+    mate = await yarig.find_mate(name)
+    if not mate:
+        await update.message.reply_text(f"No encontré a '{name}' en el equipo")
+        return
+
+    result = await yarig.send_request(mate["user_id"], text)
+    await update.message.reply_text(f"{result}\n→ Enviada a *{mate['name']}*", parse_mode="Markdown")
+
+
+async def cmd_proyectos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /proyectos command — list projects."""
+    result = await yarig.list_projects()
+    await update.message.reply_text(result, parse_mode="Markdown")
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command."""
     text = (
-        "Memorizer - Tu asistente de memoria personal\n\n"
-        "Envía cualquier mensaje al grupo y lo clasifico automáticamente.\n\n"
-        "Comandos:\n"
-        "/buscar <texto> - Buscar en tus memorias\n"
-        "/resumen [dias] - Resumen de los últimos N días (default: 7)\n"
-        "/stats - Estadísticas de memorias guardadas\n"
-        "/ranking - Ver ranking de contenido por valoración\n"
-        "/top - Ver solo contenido marcado como TOP\n"
-        "/yarig - Ver tareas del día en Yarig.ai\n"
-        "/help - Mostrar esta ayuda"
+        "🧠 *Memorizer* — Tu asistente de productividad\n\n"
+        "*📋 Yarig.ai (Tareas)*\n"
+        "/yarig — Ver tareas del día\n"
+        "/tarea <desc> — Añadir tarea\n"
+        "/iniciar [n] — Iniciar tarea (n = número)\n"
+        "/parar — Parar tarea en curso\n"
+        "/fichar — Fichar entrada\n"
+        "/fichar salida — Fichar salida\n"
+        "/extras — Iniciar horas extras\n"
+        "/extras fin — Finalizar horas extras\n"
+        "/historial — Historial de tareas\n"
+        "/score — Tu puntuación\n"
+        "/equipo — Miembros del equipo\n"
+        "/pedir <nombre> <tarea> — Pedir tarea a compañero\n"
+        "/proyectos — Lista de proyectos\n\n"
+        "*🔍 Memorizer (Contenido)*\n"
+        "/buscar <texto> — Buscar en memorias\n"
+        "/resumen [dias] — Resumen de N días\n"
+        "/stats — Estadísticas\n"
+        "/ranking — Ranking de contenido\n"
+        "/top — Contenido marcado TOP\n\n"
+        "/help — Esta ayuda"
     )
-    await update.message.reply_text(text)
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def post_init(application: Application):
@@ -336,13 +440,27 @@ def main():
 
     app = Application.builder().token(TELEGRAM_BOT_TOKEN).post_init(post_init).build()
 
-    # Commands
+    # Commands — Memorizer
     app.add_handler(CommandHandler("buscar", cmd_buscar))
     app.add_handler(CommandHandler("resumen", cmd_resumen))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("top", cmd_top))
     app.add_handler(CommandHandler("ranking", cmd_ranking))
+
+    # Commands — Yarig.ai
     app.add_handler(CommandHandler("yarig", cmd_yarig))
+    app.add_handler(CommandHandler("fichar", cmd_fichar))
+    app.add_handler(CommandHandler("tarea", cmd_tarea))
+    app.add_handler(CommandHandler("iniciar", cmd_iniciar))
+    app.add_handler(CommandHandler("parar", cmd_parar))
+    app.add_handler(CommandHandler("score", cmd_score))
+    app.add_handler(CommandHandler("historial", cmd_historial))
+    app.add_handler(CommandHandler("extras", cmd_extras))
+    app.add_handler(CommandHandler("equipo", cmd_equipo))
+    app.add_handler(CommandHandler("pedir", cmd_pedir))
+    app.add_handler(CommandHandler("proyectos", cmd_proyectos))
+
+    # General
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))
 
