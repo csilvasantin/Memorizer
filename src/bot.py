@@ -327,7 +327,7 @@ async def cmd_tarea(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_iniciar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /iniciar command — start a task by index."""
+    """Handle /iniciar command — start or resume a task by index."""
     idx = 1
     if context.args:
         try:
@@ -338,9 +338,21 @@ async def cmd_iniciar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(result)
 
 
-async def cmd_parar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /parar command — stop the active task."""
-    result = await yarig.parar_tarea()
+async def cmd_pausar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /pausar command — pause the active task (leave for later)."""
+    result = await yarig.pausar_tarea()
+    await update.message.reply_text(result)
+
+
+async def cmd_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /finalizar command — mark task as completed."""
+    idx = None
+    if context.args:
+        try:
+            idx = int(context.args[0])
+        except ValueError:
+            pass
+    result = await yarig.finalizar_tarea(idx)
     await update.message.reply_text(result)
 
 
@@ -403,20 +415,23 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command."""
     text = (
         "🧠 *Memorizer* — Tu asistente de productividad\n\n"
-        "*📋 Yarig.ai (Tareas)*\n"
+        "*📋 Yarig.ai — Tareas*\n"
         "/yarig — Ver tareas del día\n"
         "/tarea <desc> — Añadir tarea\n"
-        "/iniciar [n] — Iniciar tarea (n = número)\n"
-        "/parar — Parar tarea en curso\n"
+        "/iniciar [n] — Iniciar o reanudar tarea\n"
+        "/pausar — Pausar tarea (dejar para luego)\n"
+        "/finalizar [n] — Marcar tarea como completada\n\n"
+        "*🕐 Yarig.ai — Jornada*\n"
         "/fichar — Fichar entrada\n"
         "/fichar salida — Fichar salida\n"
         "/extras — Iniciar horas extras\n"
-        "/extras fin — Finalizar horas extras\n"
-        "/historial — Historial de tareas\n"
+        "/extras fin — Finalizar horas extras\n\n"
+        "*👥 Yarig.ai — Equipo*\n"
         "/score — Tu puntuación\n"
         "/equipo — Miembros del equipo\n"
-        "/pedir <nombre> <tarea> — Pedir tarea a compañero\n"
-        "/proyectos — Lista de proyectos\n\n"
+        "/pedir <nombre> <tarea> — Pedir tarea\n"
+        "/proyectos — Lista de proyectos\n"
+        "/historial — Historial de tareas\n\n"
         "*🔍 Memorizer (Contenido)*\n"
         "/buscar <texto> — Buscar en memorias\n"
         "/resumen [dias] — Resumen de N días\n"
@@ -452,7 +467,8 @@ def main():
     app.add_handler(CommandHandler("fichar", cmd_fichar))
     app.add_handler(CommandHandler("tarea", cmd_tarea))
     app.add_handler(CommandHandler("iniciar", cmd_iniciar))
-    app.add_handler(CommandHandler("parar", cmd_parar))
+    app.add_handler(CommandHandler("pausar", cmd_pausar))
+    app.add_handler(CommandHandler("finalizar", cmd_finalizar))
     app.add_handler(CommandHandler("score", cmd_score))
     app.add_handler(CommandHandler("historial", cmd_historial))
     app.add_handler(CommandHandler("extras", cmd_extras))

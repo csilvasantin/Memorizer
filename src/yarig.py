@@ -189,7 +189,15 @@ class YarigClient:
 
     # ── Iniciar / Parar tarea ───────────────────────────────
 
+    def _find_active_task(self, tasks: list[dict]) -> dict | None:
+        """Find the currently active (started, not finished) task."""
+        for t in tasks:
+            if t.get("start_time") and not t.get("end_time") and t.get("finished") == "0":
+                return t
+        return None
+
     async def iniciar_tarea(self, task_index: int = 1) -> str:
+        """Start or resume a task by index."""
         data = await self.get_today_data()
         if not data or not data.get("tasks"):
             return "⚠️ No hay tareas para hoy"
@@ -200,34 +208,57 @@ class YarigClient:
 
         task = tasks[task_index - 1]
         tid = task["id"]
-        result = await self._request(OPEN_TASK_URL, {"tid": tid, "finished": 0})
+        result = await self._request(OPEN_TASK_URL, {"id": tid})
         if result:
             desc = task.get("description", "").strip()
-            return f"▶️ Tarea iniciada: {desc}"
+            was_started = task.get("start_time") is not None
+            icon = "🔄" if was_started else "▶️"
+            verb = "Reanudada" if was_started else "Iniciada"
+            return f"{icon} Tarea {verb}: {desc}"
         return "⚠️ No se pudo iniciar la tarea"
 
-    async def parar_tarea(self, task_index: int = 1) -> str:
+    async def pausar_tarea(self) -> str:
+        """Pause the active task (leave for later, not finished)."""
+        data = await self.get_today_data()
+        if not data or not data.get("tasks"):
+            return "⚠️ No hay tareas para hoy"
+
+        active = self._find_active_task(data["tasks"])
+        if not active:
+            return "⚠️ No hay ninguna tarea en curso"
+
+        tid = active["id"]
+        # finished=0 → pause (dejar para luego)
+        result = await self._request(CLOSE_TASK_URL, {"tid": tid, "finished": 0})
+        if result is not None:
+            desc = active.get("description", "").strip()
+            return f"⏸ Tarea pausada: {desc}\nUsa /iniciar para reanudarla"
+        return "⚠️ No se pudo pausar la tarea"
+
+    async def finalizar_tarea(self, task_index: int | None = None) -> str:
+        """Finish/complete a task (mark as done)."""
         data = await self.get_today_data()
         if not data or not data.get("tasks"):
             return "⚠️ No hay tareas para hoy"
 
         tasks = data["tasks"]
-        # Find the active task
-        active = None
-        for t in tasks:
-            if t.get("start_time") and not t.get("end_time") and t.get("finished") == "0":
-                active = t
-                break
 
-        if not active:
-            return "⚠️ No hay ninguna tarea en curso"
+        if task_index is not None:
+            if task_index < 1 or task_index > len(tasks):
+                return f"⚠️ Tarea {task_index} no existe (hay {len(tasks)})"
+            task = tasks[task_index - 1]
+        else:
+            task = self._find_active_task(tasks)
+            if not task:
+                return "⚠️ No hay ninguna tarea en curso. Usa /finalizar <n> para indicar cuál"
 
-        tid = active["id"]
-        result = await self._request(CLOSE_TASK_URL, {"name": tid})
+        tid = task["id"]
+        # finished=1 → completar
+        result = await self._request(CLOSE_TASK_URL, {"tid": tid, "finished": 1})
         if result is not None:
-            desc = active.get("description", "").strip()
-            return f"⏹ Tarea finalizada: {desc}"
-        return "⚠️ No se pudo parar la tarea"
+            desc = task.get("description", "").strip()
+            return f"✅ Tarea finalizada: {desc}"
+        return "⚠️ No se pudo finalizar la tarea"
 
     # ── Puntuación ──────────────────────────────────────────
 
