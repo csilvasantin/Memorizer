@@ -258,6 +258,47 @@ async def handle_boost(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.warning(f"Could not edit boosted message: {e}")
 
 
+async def handle_noop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle noop button press (task name, no action)."""
+    await update.callback_query.answer()
+
+
+async def handle_yarig_control(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle Yarig task control buttons."""
+    query = update.callback_query
+    action = query.data
+
+    if action == "yt_refresh":
+        await query.answer("Actualizando...")
+        await _send_yarig_panel(query.message, edit=True)
+        return
+
+    if action == "yt_pause":
+        await query.answer("Pausando tarea...")
+        result = await yarig.pausar_tarea()
+        logger.info(f"Yarig pause: {result}")
+        await _send_yarig_panel(query.message, edit=True)
+        return
+
+    if action.startswith("yt_start_"):
+        idx = int(action.split("_")[-1])
+        await query.answer("Iniciando tarea...")
+        result = await yarig.iniciar_tarea(idx)
+        logger.info(f"Yarig start {idx}: {result}")
+        await _send_yarig_panel(query.message, edit=True)
+        return
+
+    if action.startswith("yt_finish_"):
+        idx = int(action.split("_")[-1])
+        await query.answer("Finalizando tarea...")
+        result = await yarig.finalizar_tarea(idx)
+        logger.info(f"Yarig finish {idx}: {result}")
+        await _send_yarig_panel(query.message, edit=True)
+        return
+
+    await query.answer()
+
+
 async def cmd_top(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /top command — list top boosted content."""
     top_items = await storage.get_top(limit=10)
@@ -300,10 +341,68 @@ async def cmd_ranking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
-async def cmd_yarig(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /yarig command — show today's tasks from Yarig.ai."""
+def _build_task_keyboard(tasks: list[dict]) -> InlineKeyboardMarkup:
+    """Build inline keyboard with task controls."""
+    rows = []
+    for i, task in enumerate(tasks, 1):
+        desc = task.get("description", "").strip()[:25]
+        finished = task.get("finished", "0")
+        started = task.get("start_time") is not None
+        active = started and not task.get("end_time") and finished == "0"
+
+        if finished == "1":
+            # Completed — no controls
+            rows.append([InlineKeyboardButton(f"✅ {i}. {desc}", callback_data="noop")])
+        elif active:
+            # Active — show pause + finish
+            rows.append([
+                InlineKeyboardButton(f"▶️ {i}. {desc}", callback_data="noop"),
+                InlineKeyboardButton("⏸", callback_data=f"yt_pause"),
+                InlineKeyboardButton("✅", callback_data=f"yt_finish_{i}"),
+            ])
+        elif started:
+            # Paused — show resume + finish
+            rows.append([
+                InlineKeyboardButton(f"⏸ {i}. {desc}", callback_data="noop"),
+                InlineKeyboardButton("▶️", callback_data=f"yt_start_{i}"),
+                InlineKeyboardButton("✅", callback_data=f"yt_finish_{i}"),
+            ])
+        else:
+            # Pending — show start
+            rows.append([
+                InlineKeyboardButton(f"⏳ {i}. {desc}", callback_data="noop"),
+                InlineKeyboardButton("▶️", callback_data=f"yt_start_{i}"),
+            ])
+
+    # Bottom row: refresh
+    rows.append([InlineKeyboardButton("🔄 Actualizar", callback_data="yt_refresh")])
+    return InlineKeyboardMarkup(rows)
+
+
+async def _send_yarig_panel(message, edit: bool = False):
+    """Send or edit the Yarig task panel with inline controls."""
+    data = await yarig.get_today_data()
+    if not data:
+        text = "No se pudo conectar con Yarig.ai"
+        if edit:
+            await message.edit_text(text)
+        else:
+            await message.reply_text(text)
+        return
+
     summary = await yarig.get_today_summary()
-    await update.message.reply_text(summary, parse_mode="Markdown")
+    tasks = data.get("tasks", [])
+    keyboard = _build_task_keyboard(tasks) if tasks else None
+
+    if edit:
+        await message.edit_text(summary, parse_mode="Markdown", reply_markup=keyboard)
+    else:
+        await message.reply_text(summary, parse_mode="Markdown", reply_markup=keyboard)
+
+
+async def cmd_yarig(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /yarig command — show today's tasks with controls."""
+    await _send_yarig_panel(update.message)
 
 
 async def cmd_fichar(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -480,8 +579,10 @@ def main():
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))
 
-    # Boost callback
+    # Callbacks
     app.add_handler(CallbackQueryHandler(handle_boost, pattern="^boost$"))
+    app.add_handler(CallbackQueryHandler(handle_yarig_control, pattern="^yt_"))
+    app.add_handler(CallbackQueryHandler(handle_noop, pattern="^noop$"))
 
     # Capture all non-command messages
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
