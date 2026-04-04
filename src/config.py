@@ -18,6 +18,10 @@ TELEGRAM_MISCELANEA_GROUP_ID = int(os.getenv("TELEGRAM_GROUP_MISCELANEA", "0"))
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-20250514")
 
+# Yarig.ai
+YARIG_EMAIL = os.getenv("YARIG_EMAIL", "")
+YARIG_PASSWORD = os.getenv("YARIG_PASSWORD", "")
+
 # Database
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATABASE_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "data" / "memorizer.db"))

@@ -21,6 +21,7 @@ from src.council import (
     get_destination_group,
     format_forwarded_message,
 )
+from src.yarig import YarigClient
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -29,6 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 storage = MemoryStorage()
+yarig = YarigClient()
 
 NOTIFICATION_SOUND = os.path.expanduser("~/Library/Sounds/notification.wav")
 
@@ -298,6 +300,13 @@ async def cmd_ranking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
+async def cmd_yarig(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /yarig command — show today's tasks from Yarig.ai."""
+    await update.message.reply_text("Consultando Yarig.ai...")
+    summary = await yarig.get_today_summary()
+    await update.message.reply_text(summary, parse_mode="Markdown")
+
+
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command."""
     text = (
@@ -309,6 +318,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/stats - Estadísticas de memorias guardadas\n"
         "/ranking - Ver ranking de contenido por valoración\n"
         "/top - Ver solo contenido marcado como TOP\n"
+        "/yarig - Ver tareas del día en Yarig.ai\n"
         "/help - Mostrar esta ayuda"
     )
     await update.message.reply_text(text)
@@ -332,6 +342,7 @@ def main():
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("top", cmd_top))
     app.add_handler(CommandHandler("ranking", cmd_ranking))
+    app.add_handler(CommandHandler("yarig", cmd_yarig))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("start", cmd_help))
 
