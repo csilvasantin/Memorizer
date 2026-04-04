@@ -23,11 +23,14 @@ class YarigClient:
 
     async def _ensure_session(self):
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            # yarig.ai has an incomplete SSL certificate chain
+            connector = aiohttp.TCPConnector(ssl=False)
+            jar = aiohttp.CookieJar(unsafe=True)
+            self._session = aiohttp.ClientSession(connector=connector, cookie_jar=jar)
             self._logged_in = False
 
     async def login(self) -> bool:
-        """Login to Yarig.ai and store the session cookie."""
+        """Login to Yarig.ai with email/password."""
         if not self.email or not self.password:
             logger.warning("Yarig credentials not configured")
             return False
@@ -35,9 +38,14 @@ class YarigClient:
         await self._ensure_session()
 
         try:
+            # Get login page first to establish session cookie
+            async with self._session.get(LOGIN_URL) as r:
+                pass
+
+            # POST login
             async with self._session.post(
                 LOGIN_URL,
-                data={"email": self.email, "password": self.password},
+                data={"email": self.email, "password": self.password, "submit": "Entrar"},
                 allow_redirects=True,
             ) as resp:
                 if resp.status == 200 and "/tasks" in str(resp.url):
@@ -62,21 +70,28 @@ class YarigClient:
             async with self._session.post(url) as resp:
                 if resp.status == 200:
                     data = await resp.json(content_type=None)
-                    return data
+                    if data is not None:
+                        return data
 
                 # Session expired — try re-login once
-                if resp.status in (302, 401, 403):
-                    self._logged_in = False
-                    if await self.login():
-                        async with self._session.post(url) as retry:
-                            if retry.status == 200:
-                                return await retry.json(content_type=None)
+                self._logged_in = False
+                if await self.login():
+                    async with self._session.post(url) as retry:
+                        if retry.status == 200:
+                            return await retry.json(content_type=None)
 
                 logger.warning(f"Yarig request failed: {url} status={resp.status}")
                 return None
         except Exception as e:
             logger.warning(f"Yarig request error: {e}")
             return None
+
+    @staticmethod
+    def _esc(text: str) -> str:
+        """Escape Markdown special chars for Telegram."""
+        for ch in ("_", "*", "`", "["):
+            text = text.replace(ch, f"\\{ch}")
+        return text
 
     async def get_today_tasks(self) -> list[dict]:
         """Get current day tasks for the logged-in user."""
@@ -94,15 +109,14 @@ class YarigClient:
         tasks = data.get("tasks", [])
         clocking = data.get("clocking", [])
 
-        if not tasks:
+        if not tasks and not clocking:
             return "Sin tareas para hoy en Yarig.ai"
 
         lines = ["📋 *Tareas del día (Yarig.ai)*\n"]
 
         for i, task in enumerate(tasks, 1):
-            desc = task.get("description", "").strip()
-            project = task.get("project", "")
-            customer = task.get("customer", "")
+            desc = self._esc(task.get("description", "").strip())
+            project = self._esc(task.get("project", ""))
             finished = task.get("finished", "0")
             start_time = task.get("start_time")
             end_time = task.get("end_time")
@@ -119,9 +133,14 @@ class YarigClient:
                 line += f" — _{project}_"
             lines.append(line)
 
+        if not tasks:
+            lines.append("(sin tareas registradas)")
+
         if clocking:
             entry = clocking[0]
-            lines.append(f"\n🕐 Jornada iniciada: {entry.get('datetime', '?')}")
+            name = self._esc(entry.get("name", ""))
+            dt = entry.get("datetime", "?")
+            lines.append(f"\n🕐 Jornada de *{name}* iniciada: {dt}")
 
         return "\n".join(lines)
 
