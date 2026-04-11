@@ -1,8 +1,13 @@
+from __future__ import annotations
+
+import asyncio
 import logging
 import os
 import subprocess
 import sys
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReactionTypeEmoji
+from telegram.constants import ParseMode
+from telegram.error import BadRequest
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -33,6 +38,8 @@ storage = MemoryStorage()
 yarig = YarigClient()
 
 NOTIFICATION_SOUND = os.path.expanduser("~/Library/Sounds/notification.wav")
+YARIG_AUTOREFRESH_SECONDS = 5 * 60
+_yarig_autorefresh_tasks: dict[tuple[int, int], asyncio.Task] = {}
 
 
 def _play_notification():
@@ -71,6 +78,153 @@ def _get_content_type(message) -> tuple[str, str]:
     if message.sticker:
         return "[Sticker]", "sticker"
     return "[Contenido no soportado]", "unknown"
+
+
+def _task_sort_key(task: dict) -> tuple[int, str]:
+    finished = task.get("finished", "0") == "1"
+    started = bool(task.get("start_time"))
+    ended = bool(task.get("end_time"))
+    if started and not ended and not finished:
+        rank = 0
+    elif not started and not finished:
+        rank = 1
+    elif started and ended and not finished:
+        rank = 2
+    else:
+        rank = 3
+    return rank, str(task.get("description", "")).lower()
+
+
+def _yarig_panel_key(chat_id: int, message_id: int) -> tuple[int, int]:
+    return chat_id, message_id
+
+
+def _is_yarig_autorefresh_enabled(chat_id: int, message_id: int) -> bool:
+    key = _yarig_panel_key(chat_id, message_id)
+    task = _yarig_autorefresh_tasks.get(key)
+    if task is None:
+        return False
+    if task.done():
+        _yarig_autorefresh_tasks.pop(key, None)
+        return False
+    return True
+
+
+def _cancel_yarig_autorefresh(chat_id: int, message_id: int) -> bool:
+    task = _yarig_autorefresh_tasks.pop(_yarig_panel_key(chat_id, message_id), None)
+    if task is None:
+        return False
+    task.cancel()
+    return True
+
+
+async def _send_text(target, text: str, *, edit: bool = False, parse_mode: str | None = ParseMode.MARKDOWN, reply_markup=None):
+    sender = target.edit_text if edit else target.reply_text
+    kwargs = {"text": text, "reply_markup": reply_markup}
+    if parse_mode is not None:
+        kwargs["parse_mode"] = parse_mode
+    try:
+        return await sender(**kwargs)
+    except BadRequest as exc:
+        message = str(exc)
+        if edit and "Message is not modified" in message:
+            return None
+        if parse_mode is not None and "parse entities" in message.lower():
+            return await sender(text=text, reply_markup=reply_markup)
+        raise
+
+
+async def _ensure_yarig_configured(message) -> bool:
+    if yarig.credentials_configured():
+        return True
+    await _send_text(
+        message,
+        "⚠️ Faltan `YARIG_EMAIL` y/o `YARIG_PASSWORD` en el `.env` de Memorizer.",
+    )
+    return False
+
+
+async def _edit_message_text(bot, chat_id: int, message_id: int, text: str, *, parse_mode: str | None = ParseMode.MARKDOWN, reply_markup=None):
+    kwargs = {"chat_id": chat_id, "message_id": message_id, "text": text, "reply_markup": reply_markup}
+    if parse_mode is not None:
+        kwargs["parse_mode"] = parse_mode
+    try:
+        return await bot.edit_message_text(**kwargs)
+    except BadRequest as exc:
+        message = str(exc)
+        if "Message is not modified" in message:
+            return None
+        if parse_mode is not None and "parse entities" in message.lower():
+            return await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=text,
+                reply_markup=reply_markup,
+            )
+        raise
+
+
+async def _get_yarig_panel_view(*, autorefresh_enabled: bool = False) -> tuple[str, InlineKeyboardMarkup, str | None]:
+    if not yarig.credentials_configured():
+        return (
+            "⚠️ Faltan `YARIG_EMAIL` y/o `YARIG_PASSWORD` en el `.env` de Memorizer.",
+            _build_task_keyboard([], autorefresh_enabled=autorefresh_enabled),
+            ParseMode.MARKDOWN,
+        )
+
+    data = await yarig.get_today_data()
+    keyboard = _build_task_keyboard(
+        data.get("tasks", []) if data else [],
+        autorefresh_enabled=autorefresh_enabled,
+    )
+    if not data:
+        return yarig.operation_error("cargar el panel de Yarig.ai"), keyboard, None
+
+    summary = await yarig.get_today_summary(data)
+    return summary, keyboard, ParseMode.MARKDOWN
+
+
+async def _run_yarig_autorefresh(application: Application, chat_id: int, message_id: int) -> None:
+    key = _yarig_panel_key(chat_id, message_id)
+    try:
+        while True:
+            await asyncio.sleep(YARIG_AUTOREFRESH_SECONDS)
+            try:
+                text, keyboard, parse_mode = await _get_yarig_panel_view(autorefresh_enabled=True)
+                await _edit_message_text(
+                    application.bot,
+                    chat_id,
+                    message_id,
+                    text,
+                    parse_mode=parse_mode,
+                    reply_markup=keyboard,
+                )
+            except asyncio.CancelledError:
+                raise
+            except BadRequest as exc:
+                error = str(exc).lower()
+                if "message to edit not found" in error or "message can't be edited" in error:
+                    logger.info(f"Stopping Yarig auto-refresh for missing/uneditable message {chat_id}:{message_id}")
+                    break
+                logger.warning(f"Yarig auto-refresh edit failed for {chat_id}:{message_id}: {exc}")
+            except Exception:
+                logger.exception(f"Error auto-refreshing Yarig panel {chat_id}:{message_id}")
+    except asyncio.CancelledError:
+        logger.info(f"Cancelled Yarig auto-refresh for {chat_id}:{message_id}")
+        raise
+    finally:
+        current = _yarig_autorefresh_tasks.get(key)
+        if current is asyncio.current_task():
+            _yarig_autorefresh_tasks.pop(key, None)
+
+
+def _start_yarig_autorefresh(application: Application, chat_id: int, message_id: int) -> None:
+    _cancel_yarig_autorefresh(chat_id, message_id)
+    key = _yarig_panel_key(chat_id, message_id)
+    _yarig_autorefresh_tasks[key] = asyncio.create_task(
+        _run_yarig_autorefresh(application, chat_id, message_id),
+        name=f"yarig-autorefresh-{chat_id}-{message_id}",
+    )
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -266,34 +420,57 @@ async def handle_noop(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_yarig_control(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle Yarig task control buttons."""
     query = update.callback_query
-    action = query.data
+    action = query.data or ""
+    message = query.message
+
+    if message is None:
+        await query.answer()
+        return
+
+    chat_id = message.chat_id
+    message_id = message.message_id
 
     if action == "yt_refresh":
         await query.answer("Actualizando...")
-        await _send_yarig_panel(query.message, edit=True)
+        await _send_yarig_panel(message, edit=True)
         return
 
-    if action == "yt_pause":
+    if action == "yt_autorefresh":
+        if _is_yarig_autorefresh_enabled(chat_id, message_id):
+            _cancel_yarig_autorefresh(chat_id, message_id)
+            await query.answer("Auto-refresh desactivado")
+        else:
+            _start_yarig_autorefresh(context.application, chat_id, message_id)
+            await query.answer("Auto-refresh activado cada 5 min")
+        await _send_yarig_panel(message, edit=True)
+        return
+
+    if not await _ensure_yarig_configured(message):
+        await query.answer("Faltan credenciales de Yarig", show_alert=True)
+        return
+
+    if action.startswith("yt_pause_"):
+        task_id = action.split("_")[-1]
         await query.answer("Pausando tarea...")
-        result = await yarig.pausar_tarea()
+        result = await yarig.pausar_tarea_por_id(task_id)
         logger.info(f"Yarig pause: {result}")
-        await _send_yarig_panel(query.message, edit=True)
+        await _send_yarig_panel(message, edit=True)
         return
 
     if action.startswith("yt_start_"):
-        idx = int(action.split("_")[-1])
+        task_id = action.split("_")[-1]
         await query.answer("Iniciando tarea...")
-        result = await yarig.iniciar_tarea(idx)
-        logger.info(f"Yarig start {idx}: {result}")
-        await _send_yarig_panel(query.message, edit=True)
+        result = await yarig.iniciar_tarea_por_id(task_id)
+        logger.info(f"Yarig start {task_id}: {result}")
+        await _send_yarig_panel(message, edit=True)
         return
 
     if action.startswith("yt_finish_"):
-        idx = int(action.split("_")[-1])
+        task_id = action.split("_")[-1]
         await query.answer("Finalizando tarea...")
-        result = await yarig.finalizar_tarea(idx)
-        logger.info(f"Yarig finish {idx}: {result}")
-        await _send_yarig_panel(query.message, edit=True)
+        result = await yarig.finalizar_tarea_por_id(task_id)
+        logger.info(f"Yarig finish {task_id}: {result}")
+        await _send_yarig_panel(message, edit=True)
         return
 
     await query.answer()
@@ -341,11 +518,13 @@ async def cmd_ranking(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
-def _build_task_keyboard(tasks: list[dict]) -> InlineKeyboardMarkup:
+def _build_task_keyboard(tasks: list[dict], *, autorefresh_enabled: bool = False) -> InlineKeyboardMarkup:
     """Build inline keyboard with task controls."""
     rows = []
-    for i, task in enumerate(tasks, 1):
+    ordered_tasks = sorted(tasks, key=_task_sort_key)
+    for i, task in enumerate(ordered_tasks, 1):
         desc = task.get("description", "").strip()[:25]
+        task_id = str(task.get("id", "")).strip()
         finished = task.get("finished", "0")
         started = task.get("start_time") is not None
         active = started and not task.get("end_time") and finished == "0"
@@ -356,77 +535,99 @@ def _build_task_keyboard(tasks: list[dict]) -> InlineKeyboardMarkup:
         elif active:
             # Active — show pause + finish
             rows.append([
-                InlineKeyboardButton(f"▶️ {i}. {desc}", callback_data="noop"),
-                InlineKeyboardButton("⏸", callback_data=f"yt_pause"),
-                InlineKeyboardButton("✅", callback_data=f"yt_finish_{i}"),
+                InlineKeyboardButton(f"🟢 {i}. {desc}", callback_data="noop"),
+                InlineKeyboardButton("⏸️", callback_data=f"yt_pause_{task_id}"),
+                InlineKeyboardButton("✅", callback_data=f"yt_finish_{task_id}"),
             ])
         elif started:
             # Paused — show resume + finish
             rows.append([
-                InlineKeyboardButton(f"⏸ {i}. {desc}", callback_data="noop"),
-                InlineKeyboardButton("▶️", callback_data=f"yt_start_{i}"),
-                InlineKeyboardButton("✅", callback_data=f"yt_finish_{i}"),
+                InlineKeyboardButton(f"⏸️ {i}. {desc}", callback_data="noop"),
+                InlineKeyboardButton("▶️", callback_data=f"yt_start_{task_id}"),
+                InlineKeyboardButton("✅", callback_data=f"yt_finish_{task_id}"),
             ])
         else:
             # Pending — show start
             rows.append([
-                InlineKeyboardButton(f"⏳ {i}. {desc}", callback_data="noop"),
-                InlineKeyboardButton("▶️", callback_data=f"yt_start_{i}"),
+                InlineKeyboardButton(f"🕓 {i}. {desc}", callback_data="noop"),
+                InlineKeyboardButton("▶️", callback_data=f"yt_start_{task_id}"),
             ])
 
-    # Bottom row: refresh
-    rows.append([InlineKeyboardButton("🔄 Actualizar", callback_data="yt_refresh")])
+    auto_label = "🟢 Auto 5m" if autorefresh_enabled else "✨ Auto 5m"
+    rows.append([
+        InlineKeyboardButton("🔄 Actualizar", callback_data="yt_refresh"),
+        InlineKeyboardButton(auto_label, callback_data="yt_autorefresh"),
+    ])
     return InlineKeyboardMarkup(rows)
 
 
 async def _send_yarig_panel(message, edit: bool = False):
     """Send or edit the Yarig task panel with inline controls."""
-    data = await yarig.get_today_data()
-    if not data:
-        text = "No se pudo conectar con Yarig.ai"
-        if edit:
-            await message.edit_text(text)
-        else:
-            await message.reply_text(text)
-        return
+    autorefresh_enabled = False
+    if edit and message is not None:
+        autorefresh_enabled = _is_yarig_autorefresh_enabled(message.chat_id, message.message_id)
 
-    summary = await yarig.get_today_summary()
-    tasks = data.get("tasks", [])
-    keyboard = _build_task_keyboard(tasks) if tasks else None
+    try:
+        text, keyboard, parse_mode = await _get_yarig_panel_view(autorefresh_enabled=autorefresh_enabled)
+        await _send_text(message, text, edit=edit, parse_mode=parse_mode, reply_markup=keyboard)
+    except Exception:
+        logger.exception("Error building Yarig panel")
+        await _send_text(
+            message,
+            "⚠️ Falló el panel de Yarig en Memorizer. Revisa credenciales, sesión o logs e inténtalo otra vez.",
+            edit=edit,
+            parse_mode=None,
+            reply_markup=_build_task_keyboard([], autorefresh_enabled=autorefresh_enabled),
+        )
 
-    if edit:
-        await message.edit_text(summary, parse_mode="Markdown", reply_markup=keyboard)
-    else:
-        await message.reply_text(summary, parse_mode="Markdown", reply_markup=keyboard)
+
+def _yarig_result_should_return_to_panel(result: str) -> bool:
+    return result.startswith(("✅", "🔄", "▶️", "⏸"))
 
 
 async def cmd_yarig(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /yarig command — show today's tasks with controls."""
-    await _send_yarig_panel(update.message)
+    message = update.effective_message
+    if not message:
+        return
+    await _send_yarig_panel(message)
 
 
 async def cmd_fichar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /fichar command — clock in or out."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     arg = " ".join(context.args).strip().lower() if context.args else ""
     if arg in ("salida", "out", "fin"):
         result = await yarig.fichar_salida()
     else:
         result = await yarig.fichar_entrada()
-    await update.message.reply_text(result)
+    await _send_text(message, result, parse_mode=None)
+    if _yarig_result_should_return_to_panel(result):
+        await _send_yarig_panel(message)
 
 
 async def cmd_tarea(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /tarea command — add a new task."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     if not context.args:
-        await update.message.reply_text("Uso: /tarea <descripción>\nEjemplo: /tarea Revisar diseño del dashboard")
+        await _send_text(message, "Uso: /tarea <descripción>\nEjemplo: /tarea Revisar diseño del dashboard", parse_mode=None)
         return
     desc = " ".join(context.args)
     result = await yarig.add_task(desc)
-    await update.message.reply_text(result)
+    await _send_text(message, result, parse_mode=None)
+    if _yarig_result_should_return_to_panel(result):
+        await _send_yarig_panel(message)
 
 
 async def cmd_iniciar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /iniciar command — start or resume a task by index."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     idx = 1
     if context.args:
         try:
@@ -434,17 +635,27 @@ async def cmd_iniciar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass
     result = await yarig.iniciar_tarea(idx)
-    await update.message.reply_text(result)
+    await _send_text(message, result, parse_mode=None)
+    if _yarig_result_should_return_to_panel(result):
+        await _send_yarig_panel(message)
 
 
 async def cmd_pausar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /pausar command — pause the active task (leave for later)."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     result = await yarig.pausar_tarea()
-    await update.message.reply_text(result)
+    await _send_text(message, result, parse_mode=None)
+    if _yarig_result_should_return_to_panel(result):
+        await _send_yarig_panel(message)
 
 
 async def cmd_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /finalizar command — mark task as completed."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     idx = None
     if context.args:
         try:
@@ -452,43 +663,64 @@ async def cmd_finalizar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except ValueError:
             pass
     result = await yarig.finalizar_tarea(idx)
-    await update.message.reply_text(result)
+    await _send_text(message, result, parse_mode=None)
+    if _yarig_result_should_return_to_panel(result):
+        await _send_yarig_panel(message)
 
 
 async def cmd_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /score command — show Yarig score."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     result = await yarig.get_score()
-    await update.message.reply_text(result, parse_mode="Markdown")
+    await _send_text(message, result)
 
 
 async def cmd_historial(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /historial command — show task history."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     result = await yarig.get_history()
-    await update.message.reply_text(result, parse_mode="Markdown")
+    await _send_text(message, result)
 
 
 async def cmd_extras(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /extras command — start or stop overtime."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     arg = " ".join(context.args).strip().lower() if context.args else ""
     if arg in ("fin", "stop", "parar"):
         result = await yarig.extras_fin()
     else:
         result = await yarig.extras_inicio()
-    await update.message.reply_text(result)
+    await _send_text(message, result, parse_mode=None)
+    if _yarig_result_should_return_to_panel(result):
+        await _send_yarig_panel(message)
 
 
 async def cmd_equipo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /equipo command — show team members."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     result = await yarig.get_team()
-    await update.message.reply_text(result, parse_mode="Markdown")
+    await _send_text(message, result)
 
 
 async def cmd_pedir(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /pedir command — send task request to a teammate."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     if not context.args or len(context.args) < 2:
-        await update.message.reply_text(
+        await _send_text(
+            message,
             "Uso: /pedir <nombre> <descripción>\n"
-            "Ejemplo: /pedir David Revisar el presupuesto Q2"
+            "Ejemplo: /pedir David Revisar el presupuesto Q2",
+            parse_mode=None,
         )
         return
 
@@ -497,47 +729,50 @@ async def cmd_pedir(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     mate = await yarig.find_mate(name)
     if not mate:
-        await update.message.reply_text(f"No encontré a '{name}' en el equipo")
+        await _send_text(message, f"No encontré a '{name}' en el equipo", parse_mode=None)
         return
 
     result = await yarig.send_request(mate["user_id"], text)
-    await update.message.reply_text(f"{result}\n→ Enviada a *{mate['name']}*", parse_mode="Markdown")
+    await _send_text(message, f"{result}\n🤝 Enviada a *{mate['name']}*")
 
 
 async def cmd_proyectos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /proyectos command — list projects."""
+    message = update.effective_message
+    if not message or not await _ensure_yarig_configured(message):
+        return
     result = await yarig.list_projects()
-    await update.message.reply_text(result, parse_mode="Markdown")
+    await _send_text(message, result)
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command."""
     text = (
-        "🧠 *Memorizer* — Tu asistente de productividad\n\n"
-        "*📋 Yarig.ai — Tareas*\n"
-        "/yarig — Ver tareas del día\n"
+        "🧠 *Memorizer* · tu asistente de productividad\n\n"
+        "*🗂️ Yarig.ai · Tareas*\n"
+        "/yarig — Abrir el panel del día\n"
         "/tarea <desc> — Añadir tarea\n"
         "/iniciar [n] — Iniciar o reanudar tarea\n"
-        "/pausar — Pausar tarea (dejar para luego)\n"
-        "/finalizar [n] — Marcar tarea como completada\n\n"
-        "*🕐 Yarig.ai — Jornada*\n"
+        "/pausar — Pausar tarea\n"
+        "/finalizar [n] — Completar tarea\n\n"
+        "*🕘 Yarig.ai · Jornada*\n"
         "/fichar — Fichar entrada\n"
         "/fichar salida — Fichar salida\n"
         "/extras — Iniciar horas extras\n"
         "/extras fin — Finalizar horas extras\n\n"
-        "*👥 Yarig.ai — Equipo*\n"
-        "/score — Tu puntuación\n"
-        "/equipo — Miembros del equipo\n"
+        "*🤝 Yarig.ai · Equipo*\n"
+        "/score — Ver tu puntuación\n"
+        "/equipo — Ver el equipo\n"
         "/pedir <nombre> <tarea> — Pedir tarea\n"
-        "/proyectos — Lista de proyectos\n"
-        "/historial — Historial de tareas\n\n"
-        "*🔍 Memorizer (Contenido)*\n"
+        "/proyectos — Ver proyectos\n"
+        "/historial — Ver historial de tareas\n\n"
+        "*🔎 Memorizer · Contenido*\n"
         "/buscar <texto> — Buscar en memorias\n"
         "/resumen [dias] — Resumen de N días\n"
-        "/stats — Estadísticas\n"
-        "/ranking — Ranking de contenido\n"
-        "/top — Contenido marcado TOP\n\n"
-        "/help — Esta ayuda"
+        "/stats — Ver estadísticas\n"
+        "/ranking — Ver ranking de contenido\n"
+        "/top — Ver contenido TOP\n\n"
+        "/help — Ver esta ayuda"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -546,6 +781,22 @@ async def post_init(application: Application):
     """Initialize database on startup."""
     await storage.init_db()
     logger.info("Database initialized")
+    if not yarig.credentials_configured():
+        logger.warning("YARIG_EMAIL/YARIG_PASSWORD are not configured in Memorizer")
+
+
+async def handle_error(update: object, context: ContextTypes.DEFAULT_TYPE):
+    """Log unexpected errors and send a visible fallback to Telegram."""
+    logger.exception("Unhandled bot error", exc_info=context.error)
+    if isinstance(update, Update) and update.effective_message:
+        try:
+            await _send_text(
+                update.effective_message,
+                "⚠️ El comando falló dentro de Memorizer. Revisa logs o configuración e inténtalo de nuevo.",
+                parse_mode=None,
+            )
+        except Exception:
+            logger.exception("Could not send error message back to Telegram")
 
 
 def main():
@@ -586,6 +837,14 @@ def main():
 
     # Capture all non-command messages
     app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
+    app.add_error_handler(handle_error)
+
+    async def _shutdown(_: Application) -> None:
+        for task in list(_yarig_autorefresh_tasks.values()):
+            task.cancel()
+        await yarig.close()
+
+    app.post_shutdown = _shutdown
 
     logger.info("Memorizer bot started")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
