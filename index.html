@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memorizer | Agente personal de memoria</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap');
+
+    :root {
+      --bg: #f6efe4;
+      --bg-strong: #efe2cc;
+      --surface: rgba(255, 250, 241, 0.82);
+      --surface-strong: #fffaf1;
+      --ink: #1e1f1f;
+      --muted: #60594f;
+      --line: rgba(65, 54, 37, 0.14);
+      --teal: #167c80;
+      --red: #af3c2d;
+      --gold: #c2862f;
+      --shadow: 0 22px 60px rgba(93, 66, 21, 0.14);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      color: var(--ink);
+      font-family: 'Space Grotesk', sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(22, 124, 128, 0.12), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(175, 60, 45, 0.10), transparent 30%),
+        linear-gradient(180deg, #fbf7ef 0%, var(--bg) 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .texture {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(65, 54, 37, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(65, 54, 37, 0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 56px 48px;
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+      backdrop-filter: blur(12px);
+    }
+
+    .icon {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: var(--teal);
+      font-weight: 500;
+      font-size: 1.05rem;
+      margin-bottom: 28px;
+    }
+
+    .description {
+      color: var(--muted);
+      font-size: 1rem;
+      line-height: 1.7;
+      margin-bottom: 36px;
+    }
+
+    .steps {
+      text-align: left;
+      margin-bottom: 36px;
+    }
+
+    .step {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0;
+      color: var(--ink);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(22, 124, 128, 0.10);
+      border: 1px solid rgba(22, 124, 128, 0.16);
+      color: var(--teal);
+      font-weight: 700;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step strong {
+      color: var(--teal);
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .button,
+    .button-ghost {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 18px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.95rem;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .button {
+      color: #fff8eb;
+      background: linear-gradient(135deg, var(--red), #d75d3f);
+      box-shadow: 0 16px 34px rgba(175, 60, 45, 0.22);
+    }
+
+    .button-ghost {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.34);
+      color: var(--ink);
+    }
+
+    .button:hover,
+    .button-ghost:hover {
+      transform: translateY(-2px);
+    }
+
+    .tech {
+      margin-top: 32px;
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(22, 124, 128, 0.10);
+      border: 1px solid rgba(22, 124, 128, 0.16);
+      color: var(--teal);
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 36px 24px; }
+      h1 { font-size: 1.8rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="texture"></div>
+
+  <div class="card">
+    <div class="icon">🧠</div>
+    <h1>Memorizer</h1>
+    <p class="subtitle">Agente personal de memoria</p>
+    <p class="description">
+      Organiza tu informacion diaria usando Telegram y Claude AI.
+      Envia mensajes a un grupo, y el bot los clasifica, enriquece, valora y distribuye automaticamente.
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <span class="step-num">1</span>
+        <span><strong>Recopila</strong> &mdash; Envia links, notas, ideas, contactos o videos al grupo de Telegram</span>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <span><strong>Clasifica</strong> &mdash; Claude AI categoriza cada mensaje (negocio, tecnologia, creatividad...)</span>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <span><strong>Valora</strong> &mdash; El contenido recibe una puntuacion de relevancia del 1 al 10</span>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <span><strong>Distribuye</strong> &mdash; Se reenvia al grupo tematico con valoracion y consejeros asignados</span>
+      </div>
+      <div class="step">
+        <span class="step-num">5</span>
+        <span><strong>Consulta</strong> &mdash; Pregunta al bot y Claude responde con contexto de tu historial</span>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a href="https://github.com/csilvasantin/Memorizer" class="button" target="_blank">Ver en GitHub</a>
+      <a href="https://t.me/Memorizer2Bot" class="button-ghost" target="_blank">@Memorizer2Bot</a>
+    </div>
+
+    <div class="tech">
+      <span class="pill">Python</span>
+      <span class="pill">Claude API</span>
+      <span class="pill">Telegram</span>
+      <span class="pill">SQLite</span>
+      <span class="pill">yt-dlp</span>
+      <span class="pill">Docker</span>
+    </div>
+  </div>
+</body>
+</html>
