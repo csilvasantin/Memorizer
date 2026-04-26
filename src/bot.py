@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 import sys
+from urllib.parse import quote as urlquote
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReactionTypeEmoji
 from telegram.constants import ParseMode
 from telegram.error import BadRequest
@@ -745,6 +746,37 @@ async def cmd_proyectos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _send_text(message, result)
 
 
+CONSEJO_BASE_URL = "https://csilvasantin.github.io/32.-ConsejoAdmiraNextGame/council-scumm.html"
+
+
+async def cmd_entrenar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /entrenar <url> — devuelve un magic link al Consejo SCUMM con la URL pre-cargada."""
+    message = update.effective_message
+    if not message:
+        return
+    if not context.args:
+        await message.reply_text(
+            "Uso: /entrenar <url>\n\nEjemplo:\n/entrenar https://www.youtube.com/watch?v=cHuqhQmc4ok"
+        )
+        return
+    raw = " ".join(context.args).strip()
+    if not raw.startswith(("http://", "https://")):
+        raw = "https://" + raw
+    encoded = urlquote(raw, safe="")
+    magic = f"{CONSEJO_BASE_URL}?train={encoded}"
+    text = (
+        "🎓 <b>Entrenar al Consejo</b>\n\n"
+        f'Pulsa para abrir el Consejo y archivar la URL en el corpus:\n'
+        f'🔗 <a href="{magic}">Entrenar con esta URL</a>\n\n'
+        f"<i>Origen:</i> {raw}"
+    )
+    await message.reply_text(
+        text,
+        parse_mode=ParseMode.HTML,
+        disable_web_page_preview=True,
+    )
+
+
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command."""
     text = (
@@ -772,6 +804,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/stats — Ver estadísticas\n"
         "/ranking — Ver ranking de contenido\n"
         "/top — Ver contenido TOP\n\n"
+        "*🎓 Consejo AdmiraNext*\n"
+        "/entrenar <url> — Magic link para entrenar al Consejo con vídeo o libro\n\n"
         "/help — Ver esta ayuda"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
@@ -811,6 +845,9 @@ def main():
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("top", cmd_top))
     app.add_handler(CommandHandler("ranking", cmd_ranking))
+
+    # Commands — Consejo AdmiraNext
+    app.add_handler(CommandHandler("entrenar", cmd_entrenar))
 
     # Commands — Yarig.ai
     app.add_handler(CommandHandler("yarig", cmd_yarig))
