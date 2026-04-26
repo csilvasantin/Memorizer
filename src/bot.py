@@ -750,25 +750,41 @@ CONSEJO_BASE_URL = "https://csilvasantin.github.io/32.-ConsejoAdmiraNextGame/cou
 
 
 async def cmd_entrenar(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle /entrenar <url> — devuelve un magic link al Consejo SCUMM con la URL pre-cargada."""
+    """Handle /entrenar <url> [destinatario] — devuelve un magic link al Consejo SCUMM.
+
+    Destinatario opcional puede ser:
+      - persona (Wozniak, "Steve Jobs", Disney…)
+      - rol (CEO, CTO, CCO…)
+      - "todos" / "all" (default si no se especifica)
+    """
     message = update.effective_message
     if not message:
         return
     if not context.args:
         await message.reply_text(
-            "Uso: /entrenar <url>\n\nEjemplo:\n/entrenar https://www.youtube.com/watch?v=cHuqhQmc4ok"
+            "Uso: /entrenar <url> [destinatario]\n\n"
+            "Ejemplos:\n"
+            "/entrenar https://www.youtube.com/watch?v=cHuqhQmc4ok\n"
+            "/entrenar https://… Wozniak\n"
+            "/entrenar https://… CTO\n"
+            "/entrenar https://… todos\n\n"
+            "Si no se indica destinatario, va a los 8 consejeros."
         )
         return
-    raw = " ".join(context.args).strip()
-    if not raw.startswith(("http://", "https://")):
-        raw = "https://" + raw
-    encoded = urlquote(raw, safe="")
-    magic = f"{CONSEJO_BASE_URL}?train={encoded}"
+    raw_url = context.args[0].strip()
+    if not raw_url.startswith(("http://", "https://")):
+        raw_url = "https://" + raw_url
+    target = " ".join(context.args[1:]).strip() if len(context.args) > 1 else "todos"
+    encoded_url = urlquote(raw_url, safe="")
+    encoded_target = urlquote(target, safe="")
+    magic = f"{CONSEJO_BASE_URL}?train={encoded_url}&target={encoded_target}"
+    target_label = "<i>todos los consejeros</i>" if target.lower() in ("todos", "all", "*", "everyone") else f"<b>{target}</b>"
     text = (
         "🎓 <b>Entrenar al Consejo</b>\n\n"
+        f"Destinatario: {target_label}\n\n"
         f'Pulsa para abrir el Consejo y archivar la URL en el corpus:\n'
         f'🔗 <a href="{magic}">Entrenar con esta URL</a>\n\n'
-        f"<i>Origen:</i> {raw}"
+        f"<i>Origen:</i> {raw_url}"
     )
     await message.reply_text(
         text,
